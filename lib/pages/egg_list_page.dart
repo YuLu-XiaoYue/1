@@ -143,6 +143,7 @@ class _EggListPageState extends State<EggListPage> {
                 Expanded(child: TextField(onChanged: (v) => setState(() => _searchQuery = v), decoration: const InputDecoration(hintText: '搜索名字/买家', prefixIcon: Icon(Icons.search), isDense: true, border: OutlineInputBorder()))),
                 const SizedBox(width: 8),
                 PopupMenuButton<String>(
+                  tooltip: '筛选与过滤',
                   icon: const Icon(Icons.filter_alt),
                   onSelected: (v) { if (v == 'clear') setState(() => _filterMedals.clear()); else if (v == 'toggle') setState(() => _filterMatchAll = !_filterMatchAll); else setState(() { if (_filterMedals.contains(v)) _filterMedals.remove(v); else _filterMedals.add(v); }); },
                   itemBuilder: (c) => [
@@ -154,6 +155,7 @@ class _EggListPageState extends State<EggListPage> {
                   ],
                 ),
                 PopupMenuButton<String>(
+                  tooltip: '排序方式',
                   icon: const Icon(Icons.sort),
                   onSelected: (v) => setState(() => _sortType = v),
                   itemBuilder: (c) => _sortTypes.map((s) => PopupMenuItem(value: s, child: Text(s))).toList(),
@@ -360,17 +362,6 @@ class _EggEditPageState extends State<EggEditPage> {
     if (mounted) Navigator.pop(context);
   }
 
-  void _showPickerSheet(List<String> items, String? current, Function(String) onSelect) {
-    showModalBottomSheet(context: context, builder: (c) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: items.map((e) => ListTile(title: Text(e, textAlign: TextAlign.center), trailing: current == e ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary) : null, onTap: () { onSelect(e); Navigator.pop(c); })).toList())));
-  }
-
-  void _showParentPickerSheet(List<Parent> parents, int? currentId, Function(int?) onSelect) {
-    showModalBottomSheet(context: context, builder: (c) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
-      ListTile(title: const Text('无', textAlign: TextAlign.center), onTap: () { onSelect(null); Navigator.pop(c); }),
-      ...parents.map((p) => ListTile(title: Text(p.name, textAlign: TextAlign.center), trailing: currentId == p.id ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary) : null, onTap: () { onSelect(p.id); Navigator.pop(c); })),
-    ])));
-  }
-
   @override
   Widget build(BuildContext context) {
     bool isReadOnly = _status == '已售出' || _status == '需售后'; 
@@ -388,17 +379,32 @@ class _EggEditPageState extends State<EggEditPage> {
         
         const SizedBox(height: 16),
         Row(children: [
-          Expanded(child: InkWell(onTap: isReadOnly ? null : () => _showPickerSheet(['普窝', '绿窝'], _nestType, (v) => setState(() => _nestType = v)), child: InputDecorator(decoration: const InputDecoration(labelText: '窝类型'), child: Text(_nestType)))),
+          Expanded(
+            child: DropdownButtonFormField<String>(
+              value: _nestType,
+              isExpanded: true,
+              menuMaxHeight: 250,
+              decoration: const InputDecoration(labelText: '窝类型'),
+              items: ['普窝', '绿窝'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+              onChanged: isReadOnly ? null : (v) => setState(() => _nestType = v!),
+            )
+          ),
           const SizedBox(width: 16),
           Expanded(child: InkWell(onTap: isReadOnly ? null : _pickDate, child: InputDecorator(decoration: const InputDecoration(labelText: '收取日期'), child: Text(_obtainedDate)))),
         ]),
 
         const SizedBox(height: 16),
         Row(children: [
-          Expanded(child: InkWell(
-            onTap: isReadOnly ? null : () => _showPickerSheet(_accounts.map((a) => a.name).toList(), _selectedAccount, (v) { setState(() { _selectedAccount = v; _fatherId = null; _motherId = null; _isParentLocked = false; _loadParents(); }); }), 
-            child: InputDecorator(decoration: const InputDecoration(labelText: '所属账号'), child: Text(_selectedAccount ?? '请选择'))
-          )),
+          Expanded(
+            child: DropdownButtonFormField<String>(
+              value: _selectedAccount,
+              isExpanded: true,
+              menuMaxHeight: 250,
+              decoration: const InputDecoration(labelText: '所属账号'),
+              items: _accounts.map((a) => DropdownMenuItem(value: a.name, child: Text(a.name))).toList(),
+              onChanged: isReadOnly ? null : (v) { setState(() { _selectedAccount = v; _fatherId = null; _motherId = null; _isParentLocked = false; _loadParents(); }); },
+            )
+          ),
           const SizedBox(width: 16),
           Expanded(child: TextField(controller: _weightCtrl, enabled: !isReadOnly, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: '重量(kg)', errorText: _isOutOfRange ? '此蛋重不在设置范围内！' : null), onChanged: _autoFillPrice)),
         ]),
@@ -406,12 +412,40 @@ class _EggEditPageState extends State<EggEditPage> {
         const SizedBox(height: 16),
         Row(children: [
           Expanded(child: Row(children: [
-            Expanded(child: InkWell(onTap: (isReadOnly || _isParentLocked) ? null : () => _showParentPickerSheet(_mothers, _motherId, (v) => setState(() => _motherId = v)), child: InputDecorator(decoration: const InputDecoration(labelText: '母本'), child: Text(_isParentLocked && widget.egg?.motherId == null ? '[已删除]' : _mothers.firstWhere((p) => p.id == _motherId, orElse: () => Parent(name: '无', gender: '', account: '')).name)))),
+            Expanded(
+              child: DropdownButtonFormField<int?>(
+                value: _motherId,
+                isExpanded: true,
+                menuMaxHeight: 250,
+                decoration: const InputDecoration(labelText: '母本'),
+                items: [
+                  const DropdownMenuItem<int?>(value: null, child: Text('无')),
+                  ..._mothers.map((p) => DropdownMenuItem<int?>(value: p.id, child: Text(p.name))),
+                  if (widget.egg != null && widget.egg!.motherId != null && !_mothers.any((p) => p.id == widget.egg!.motherId))
+                    DropdownMenuItem<int?>(value: widget.egg!.motherId, child: const Text('[已删除]')),
+                ],
+                onChanged: (isReadOnly || _isParentLocked) ? null : (v) => setState(() => _motherId = v),
+              )
+            ),
             if (!isReadOnly && _isParentLocked) IconButton(icon: const Icon(Icons.lock, size: 16, color: Colors.red), onPressed: () { setState(() => _isParentLocked = false); }),
           ])),
           const SizedBox(width: 16),
           Expanded(child: Row(children: [
-            Expanded(child: InkWell(onTap: (isReadOnly || _isParentLocked) ? null : () => _showParentPickerSheet(_fathers, _fatherId, (v) => setState(() => _fatherId = v)), child: InputDecorator(decoration: const InputDecoration(labelText: '父本'), child: Text(_isParentLocked && widget.egg?.fatherId == null ? '[已删除]' : _fathers.firstWhere((p) => p.id == _fatherId, orElse: () => Parent(name: '无', gender: '', account: '')).name)))),
+            Expanded(
+              child: DropdownButtonFormField<int?>(
+                value: _fatherId,
+                isExpanded: true,
+                menuMaxHeight: 250,
+                decoration: const InputDecoration(labelText: '父本'),
+                items: [
+                  const DropdownMenuItem<int?>(value: null, child: Text('无')),
+                  ..._fathers.map((p) => DropdownMenuItem<int?>(value: p.id, child: Text(p.name))),
+                  if (widget.egg != null && widget.egg!.fatherId != null && !_fathers.any((p) => p.id == widget.egg!.fatherId))
+                    DropdownMenuItem<int?>(value: widget.egg!.fatherId, child: const Text('[已删除]')),
+                ],
+                onChanged: (isReadOnly || _isParentLocked) ? null : (v) => setState(() => _fatherId = v),
+              )
+            ),
             if (!isReadOnly && _isParentLocked) IconButton(icon: const Icon(Icons.lock, size: 16, color: Colors.red), onPressed: () { setState(() => _isParentLocked = false); }),
           ])),
         ]),
@@ -431,9 +465,13 @@ class _EggEditPageState extends State<EggEditPage> {
         Wrap(spacing: 8, children: voiceMedals.map((m) => ChoiceChip(label: _buildMedalChip(m), selected: _voiceMedal == m, onSelected: isReadOnly ? null : (v) => setState(() => _voiceMedal = v ? m : null))).toList()),
         
         const SizedBox(height: 16),
-        InkWell(
-          onTap: () => _showPickerSheet(['在库', '已预定', '已售出', '需售后'], _status, (v) => setState(() => _status = v)), 
-          child: InputDecorator(decoration: const InputDecoration(labelText: '状态'), child: Text(_status))
+        DropdownButtonFormField<String>(
+          value: _status,
+          isExpanded: true,
+          menuMaxHeight: 250,
+          decoration: const InputDecoration(labelText: '状态'),
+          items: ['在库', '已预定', '已售出', '需售后'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+          onChanged: (v) => setState(() => _status = v!),
         ),
         
         if (_status != '在库') ...[
