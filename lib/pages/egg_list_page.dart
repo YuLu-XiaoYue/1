@@ -243,7 +243,6 @@ class _EggListPageState extends State<EggListPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: alphabet.map((l) => GestureDetector(
                   onTap: () {
-                    // 简易索引跳转，利用估算高度
                     int idx = 0;
                     for (int i=0; i<alphabet.indexOf(l); i++) { idx += groups[alphabet[i]]!.length + 1; }
                     _scrollController.animateTo(idx * 72.0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
@@ -417,9 +416,11 @@ class _EggEditPageState extends State<EggEditPage> {
         const SizedBox(height: 16),
         TextField(controller: _priceCtrl, enabled: !isReadOnly, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '标价')),
         
-        if (widget.viewType == '在库/预定') InkWell(onTap: () => _showPickerSheet(['在库', '已预定'], _status, (v) => setState(() => _status = v)), child: InputDecorator(decoration: const InputDecoration(labelText: '状态'), child: Text(_status))),
-        if (widget.viewType == '已售出') InkWell(onTap: () => _showPickerSheet(['已售出', '需售后'], _status, (v) => setState(() => _status = v)), child: InputDecorator(decoration: const InputDecoration(labelText: '状态'), child: Text(_status))),
-        if (widget.viewType == '售后订单') InkWell(onTap: () => _showPickerSheet(['需售后', '已售出'], _status, (v) => setState(() => _status = v)), child: InputDecorator(decoration: const InputDecoration(labelText: '状态'), child: Text(_status))),
+        // 修复了这里，不再依赖 viewType，而是统一状态流转
+        InkWell(
+          onTap: () => _showPickerSheet(['在库', '已预定', '已售出', '需售后'], _status, (v) => setState(() => _status = v)), 
+          child: InputDecorator(decoration: const InputDecoration(labelText: '状态'), child: Text(_status))
+        ),
         
         if (_status != '在库') ...[
           const SizedBox(height: 16),
@@ -428,7 +429,7 @@ class _EggEditPageState extends State<EggEditPage> {
           TextField(controller: _buyerIdCtrl, enabled: !isReadOnly, decoration: const InputDecoration(labelText: '买家游戏ID')),
           TextField(controller: _afterSalesCtrl, enabled: _status == '需售后', maxLines: 2, decoration: const InputDecoration(labelText: '售后方案 / 备注（仅售后状态可修改）', border: OutlineInputBorder())),
         ],
-        const SizedBox(height: 80), // 底部留白
+        const SizedBox(height: 80),
       ]),
       floatingActionButton: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
         FloatingActionButton(onPressed: _save, backgroundColor: Colors.green, foregroundColor: Colors.white, heroTag: 'save', child: const Icon(Icons.check)),
