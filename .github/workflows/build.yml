@@ -44,15 +44,22 @@ jobs:
           channel: 'stable'
       - name: Generate missing platform folders
         run: flutter create . --platforms android,windows
-      - name: Rename Windows Exe
+      
+      # 只修改窗口标题为中文，保持底层 Target 名字（elf_egg_warehouse）不变
+      - name: Rename Window Title to Chinese
         run: |
-          sed -i 's/set(BINARY_NAME "elf_egg_warehouse")/set(BINARY_NAME "精灵蛋仓库")/' windows/CMakeLists.txt
-          sed -i 's/elf_egg_warehouse/精灵蛋仓库/g' windows/runner/main.cpp
+          (Get-Content windows/runner/main.cpp) | Foreach-Object { $_ -replace 'elf_egg_warehouse', '精灵蛋仓库' } | Set-Content -Encoding UTF8 windows/runner/main.cpp
+          
       - run: flutter config --enable-windows-desktop
       - run: flutter pub get
       - run: flutter build windows --release
-      - name: Zip Windows Release
-        run: Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath windows-app.zip
+      
+      # 构建完成后，把生成的 exe 文件重命名为中文
+      - name: Rename EXE and Zip Release
+        run: |
+          Rename-Item -Path "build\windows\x64\runner\Release\elf_egg_warehouse.exe" -NewName "精灵蛋仓库.exe"
+          Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath windows-app.zip
+        
       - uses: actions/upload-artifact@v4
         with:
           name: Windows-EXE
