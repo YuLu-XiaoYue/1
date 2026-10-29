@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:lpinyin/lpinyin.dart';
 import '../db/database.dart';
 import '../models/models.dart';
 
@@ -11,6 +12,8 @@ class BlacklistPage extends StatefulWidget {
 
 class _BlacklistPageState extends State<BlacklistPage> {
   List<Blacklist> _list = [];
+  String _searchQuery = '';
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() { super.initState(); _load(); }
@@ -56,24 +59,109 @@ class _BlacklistPageState extends State<BlacklistPage> {
 
   @override
   Widget build(BuildContext context) {
+    // 1. 搜索过滤
+    var visible = _list.where((b) {
+      return _searchQuery.isEmpty || b.buyerName.contains(_searchQuery) || (b.platformId).contains(_searchQuery) || (b.gameId).contains(_searchQuery);
+    }).toList();
+
+    // 2. 拼音首字母分组
+    Map<String, List<Blacklist>> groupedList = {};
+    for (var b in visible) {
+      String buyer = b.buyerName;
+      String firstLetter = 'Z';
+      if (buyer.isNotEmpty) {
+        try { firstLetter = PinyinHelper.getShortPinyin(buyer)[0].toUpperCase(); } catch (_) {}
+      }
+      if (firstLetter.codeUnitAt(0) < 65 || firstLetter.codeUnitAt(0) > 90) firstLetter = '#';
+      if (!groupedList.containsKey(firstLetter)) groupedList[firstLetter] = [];
+      groupedList[firstLetter]!.add(b);
+    }
+    List<String> alphabet = groupedList.keys.toList()..sort();
+
+    // 用于定位滚动
+    final Map<String, GlobalKey> sectionKeys = { for (var letter in alphabet) letter: GlobalKey() };
+
     return Scaffold(
-      body: _list.isEmpty ? const Center(child: Text('暂无拉黑记录')) : ListView.builder(
-        itemCount: _list.length,
-        itemBuilder: (context, i) {
-          final b = _list[i];
-          return GestureDetector(
-            onSecondaryTap: () => _deleteItem(b.id!),
-            child: Slidable(
-              key: ValueKey(b.id),
-              endActionPane: ActionPane(motion: const ScrollMotion(), children: [SlidableAction(onPressed: (_) => _deleteItem(b.id!), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')]),
-              child: ListTile(
-                title: Text(b.buyerName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text('平台: ${b.platform} | 平台ID: ${b.platformId}\n游戏ID: ${b.gameId} | 原因: ${b.reason ?? "无"}'),
-                isThreeLine: true,
-              ),
+      body: Column(
+        children: [
+          // 顶部搜索框
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: TextField(
+              onChanged: (v) => setState(() => _searchQuery = v),
+              decoration: const InputDecoration(hintText: '搜索买家名称 / 平台ID / 游戏ID', prefixIcon: Icon(Icons.search), isDense: true, border: OutlineInputBorder()),
             ),
-          );
-        },
+          ),
+          
+          Expanded(
+            child: groupedList.isEmpty 
+              ? const Center(child: Text('暂无数据')) 
+              : Stack(
+                  children: [
+                    ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.only(right: 30, bottom: 80),
+                      itemCount: alphabet.length,
+                      itemBuilder: (context, index) {
+                        final letter = alphabet[index];
+                        return Column(
+                          key: sectionKeys[letter],
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              color: Colors.grey.shade200,
+                              child: Text(letter, style: const TextStyle(fontWeight: FontWeight.bold)),
+                            ),
+                            ...groupedList[letter]!.map((b) => GestureDetector(
+                              onSecondaryTap: () => _deleteItem(b.id!),
+                              child: Slidable(
+                                key: ValueKey(b.id),
+                                endActionPane: ActionPane(motion: const ScrollMotion(), children: [
+                                  SlidableAction(onPressed: (_) => _deleteItem(b.id!), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')
+                                ]),
+                                child: ListTile(
+                                  title: Text(b.buyerName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  subtitle: Text('平台: ${b.platform} | 平台ID: ${b.platformId}\n游戏ID: ${b.gameId} | 原因: ${b.reason ?? "无"}'),
+                                  isThreeLine: true,
+                                ),
+                              ),
+                            ))
+                          ],
+                        );
+                      },
+                    ),
+                    
+                    // 右侧字母索引条
+                    Positioned(
+                      right: 0, top: 0, bottom: 0,
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.8), borderRadius: BorderRadius.circular(20)),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: alphabet.map((l) => GestureDetector(
+                              onTap: () {
+                                // 利用 GlobalKey 精确跳转到对应字母
+                                final ctx = sectionKeys[l]?.currentContext;
+                                if (ctx != null) {
+                                  Scrollable.ensureVisible(ctx, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+                                }
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), 
+                                child: Text(l, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.blue))
+                              ),
+                            )).toList(),
+                          ),
+                        ),
+                      ),
+                    )
+                  ],
+                ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(onPressed: _showAddDialog, child: const Icon(Icons.add)),
     );
