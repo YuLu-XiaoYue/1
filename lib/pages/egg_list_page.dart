@@ -205,6 +205,8 @@ class _EggListPageState extends State<EggListPage> {
 
   Widget _buildAlphabetList(Map<String, List<Egg>> groups, List<String> alphabet) {
     if (groups.isEmpty) return const Center(child: Text('暂无数据'));
+    final Map<String, GlobalKey> sectionKeys = { for (var letter in alphabet) letter: GlobalKey() };
+    
     return Stack(
       children: [
         ListView(
@@ -212,6 +214,7 @@ class _EggListPageState extends State<EggListPage> {
           padding: const EdgeInsets.only(right: 30, bottom: 100),
           children: alphabet.map((letter) {
             return Column(
+              key: sectionKeys[letter],
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), color: Colors.grey.shade200, child: Text(letter, style: const TextStyle(fontWeight: FontWeight.bold))),
@@ -243,9 +246,8 @@ class _EggListPageState extends State<EggListPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: alphabet.map((l) => GestureDetector(
                   onTap: () {
-                    int idx = 0;
-                    for (int i=0; i<alphabet.indexOf(l); i++) { idx += groups[alphabet[i]]!.length + 1; }
-                    _scrollController.animateTo(idx * 72.0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+                    final ctx = sectionKeys[l]?.currentContext;
+                    if (ctx != null) { Scrollable.ensureVisible(ctx, duration: const Duration(milliseconds: 300), curve: Curves.easeOut); }
                   },
                   child: Padding(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), child: Text(l, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.blue))),
                 )).toList(),
@@ -381,30 +383,45 @@ class _EggEditPageState extends State<EggEditPage> {
           const SizedBox(width: 16),
           ElevatedButton.icon(onPressed: () async { final res = await FilePicker.platform.pickFiles(type: FileType.image); if (res != null && res.files.single.path != null) { final saved = await copyImageToLocal(res.files.single.path!, 'egg_icons'); setState(() => _iconPath = saved); } }, icon: const Icon(Icons.image), label: const Text('选图')),
         ]),
+        const SizedBox(height: 16),
         TextField(controller: _nameCtrl, enabled: !isReadOnly, decoration: const InputDecoration(labelText: '蛋名')),
         
+        const SizedBox(height: 16),
         Row(children: [
           Expanded(child: InkWell(onTap: isReadOnly ? null : () => _showPickerSheet(['普窝', '绿窝'], _nestType, (v) => setState(() => _nestType = v)), child: InputDecorator(decoration: const InputDecoration(labelText: '窝类型'), child: Text(_nestType)))),
           const SizedBox(width: 16),
           Expanded(child: InkWell(onTap: isReadOnly ? null : _pickDate, child: InputDecorator(decoration: const InputDecoration(labelText: '收取日期'), child: Text(_obtainedDate)))),
         ]),
 
+        const SizedBox(height: 16),
         Row(children: [
-          Expanded(child: InkWell(onTap: isReadOnly ? null : () => _showPickerSheet(_accounts.map((a) => a.name).toList(), _selectedAccount, (v) { setState(() { _selectedAccount = v; _fatherId = null; _motherId = null; _isParentLocked = false; _loadParents(); }); }), child: InputDecorator(decoration: const InputDecoration(labelText: '所属账号'), child: Text(_selectedAccount ?? '请选择')))),
-          const SizedBox(width: 8),
+          Expanded(child: InkWell(
+            onTap: isReadOnly ? null : () => _showPickerSheet(_accounts.map((a) => a.name).toList(), _selectedAccount, (v) { setState(() { _selectedAccount = v; _fatherId = null; _motherId = null; _isParentLocked = false; _loadParents(); }); }), 
+            child: InputDecorator(decoration: const InputDecoration(labelText: '所属账号'), child: Text(_selectedAccount ?? '请选择'))
+          )),
+          const SizedBox(width: 16),
+          Expanded(child: TextField(controller: _weightCtrl, enabled: !isReadOnly, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: '重量(kg)', errorText: _isOutOfRange ? '此蛋重不在设置范围内！' : null), onChanged: _autoFillPrice)),
+        ]),
+
+        const SizedBox(height: 16),
+        Row(children: [
           Expanded(child: Row(children: [
             Expanded(child: InkWell(onTap: (isReadOnly || _isParentLocked) ? null : () => _showParentPickerSheet(_mothers, _motherId, (v) => setState(() => _motherId = v)), child: InputDecorator(decoration: const InputDecoration(labelText: '母本'), child: Text(_isParentLocked && widget.egg?.motherId == null ? '[已删除]' : _mothers.firstWhere((p) => p.id == _motherId, orElse: () => Parent(name: '无', gender: '', account: '')).name)))),
             if (!isReadOnly && _isParentLocked) IconButton(icon: const Icon(Icons.lock, size: 16, color: Colors.red), onPressed: () { setState(() => _isParentLocked = false); }),
           ])),
-          const SizedBox(width: 8),
+          const SizedBox(width: 16),
           Expanded(child: Row(children: [
             Expanded(child: InkWell(onTap: (isReadOnly || _isParentLocked) ? null : () => _showParentPickerSheet(_fathers, _fatherId, (v) => setState(() => _fatherId = v)), child: InputDecorator(decoration: const InputDecoration(labelText: '父本'), child: Text(_isParentLocked && widget.egg?.fatherId == null ? '[已删除]' : _fathers.firstWhere((p) => p.id == _fatherId, orElse: () => Parent(name: '无', gender: '', account: '')).name)))),
             if (!isReadOnly && _isParentLocked) IconButton(icon: const Icon(Icons.lock, size: 16, color: Colors.red), onPressed: () { setState(() => _isParentLocked = false); }),
           ])),
         ]),
 
-        TextField(controller: _weightCtrl, enabled: !isReadOnly, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: '重量(kg)', errorText: _isOutOfRange ? '此蛋重不在设置范围内！' : null), onChanged: _autoFillPrice),
-        TextField(controller: _natureCtrl, enabled: !isReadOnly, decoration: const InputDecoration(labelText: '性格')),
+        const SizedBox(height: 16),
+        Row(children: [
+          Expanded(child: TextField(controller: _natureCtrl, enabled: !isReadOnly, decoration: const InputDecoration(labelText: '性格'))),
+          const SizedBox(width: 16),
+          Expanded(child: TextField(controller: _priceCtrl, enabled: !isReadOnly, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '标价'))),
+        ]),
         
         const SizedBox(height: 16),
         const Text('体型/重量奖牌 (单选)', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -414,9 +431,6 @@ class _EggEditPageState extends State<EggEditPage> {
         Wrap(spacing: 8, children: voiceMedals.map((m) => ChoiceChip(label: _buildMedalChip(m), selected: _voiceMedal == m, onSelected: isReadOnly ? null : (v) => setState(() => _voiceMedal = v ? m : null))).toList()),
         
         const SizedBox(height: 16),
-        TextField(controller: _priceCtrl, enabled: !isReadOnly, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '标价')),
-        
-        // 修复了这里，不再依赖 viewType，而是统一状态流转
         InkWell(
           onTap: () => _showPickerSheet(['在库', '已预定', '已售出', '需售后'], _status, (v) => setState(() => _status = v)), 
           child: InputDecorator(decoration: const InputDecoration(labelText: '状态'), child: Text(_status))
@@ -425,8 +439,11 @@ class _EggEditPageState extends State<EggEditPage> {
         if (_status != '在库') ...[
           const SizedBox(height: 16),
           TextField(controller: _platformCtrl, enabled: !isReadOnly, decoration: const InputDecoration(labelText: '售卖平台')),
+          const SizedBox(height: 16),
           TextField(controller: _buyerCtrl, enabled: !isReadOnly, decoration: const InputDecoration(labelText: '买家名称')),
+          const SizedBox(height: 16),
           TextField(controller: _buyerIdCtrl, enabled: !isReadOnly, decoration: const InputDecoration(labelText: '买家游戏ID')),
+          const SizedBox(height: 16),
           TextField(controller: _afterSalesCtrl, enabled: _status == '需售后', maxLines: 2, decoration: const InputDecoration(labelText: '售后方案 / 备注（仅售后状态可修改）', border: OutlineInputBorder())),
         ],
         const SizedBox(height: 80),
