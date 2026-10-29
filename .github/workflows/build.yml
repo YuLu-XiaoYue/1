@@ -1,1 +1,59 @@
+name: Build Apps
 
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+      - name: Generate missing platform folders
+        run: flutter create . --platforms android,windows
+      - name: Apply compileSdk patch
+        run: |
+          cp android.build.gradle.kts android/build.gradle.kts
+      - name: Rename App to Chinese
+        run: sed -i 's/android:label=".*"/android:label="精灵蛋仓库"/' android/app/src/main/AndroidManifest.xml
+      - run: flutter pub get
+      - name: Build APK and Move to Correct Path
+        run: |
+          flutter build apk --release || true
+          mkdir -p build/app/outputs/flutter-apk/
+          cp android/app/build/outputs/apk/release/app-release.apk build/app/outputs/flutter-apk/app-release.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Android-APK
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+      - name: Generate missing platform folders
+        run: flutter create . --platforms android,windows
+      - name: Rename Windows Exe
+        run: |
+          sed -i 's/set(BINARY_NAME "elf_egg_warehouse")/set(BINARY_NAME "精灵蛋仓库")/' windows/CMakeLists.txt
+          sed -i 's/elf_egg_warehouse/精灵蛋仓库/g' windows/runner/main.cpp
+      - run: flutter config --enable-windows-desktop
+      - run: flutter pub get
+      - run: flutter build windows --release
+      - name: Zip Windows Release
+        run: Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath windows-app.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Windows-EXE
+          path: windows-app.zip
