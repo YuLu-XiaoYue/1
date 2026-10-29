@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'db/database.dart';
 import 'pages/egg_list_page.dart';
@@ -40,6 +41,17 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       title: '精灵蛋仓库',
       debugShowCheckedModeBanner: false,
+      
+      // --- 新增的中文本地化配置 ---
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [Locale('zh', 'CN')],
+      locale: const Locale('zh', 'CN'),
+      // ----------------------------
+
       theme: ThemeData(
         colorSchemeSeed: _themeColor, 
         scaffoldBackgroundColor: _bgColor,
