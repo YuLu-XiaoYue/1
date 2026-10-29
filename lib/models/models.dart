@@ -116,7 +116,7 @@ class Article {
   factory Article.fromMap(Map<String, Object?> m) => Article(id: m['id'] as int?, type: m['type'] as String, content: m['content'] as String);
 }
 
-const List<String> bloodlines = ['普通','草','火','水','光','地','冰','龙','电','毒','虫','武','翼','萌','幽','恶','机械','幻','首领','污染','奇异'];
+const List<String> bloodlines = ['草','火','水','光','地','冰','龙','电','毒','虫','武','翼','萌','幽','恶','幻','机械','普通','奇异','首领','污染'];
 const List<String> sizeMedals = ['大块头', '满重', '小不点', '满轻'];
 const List<String> voiceMedals = ['婉转声', '满音婉转声', '粗嗓门', '满音粗嗓门'];
 const List<String> appearanceTypes = ['普通', '异色', '炫彩', '异色炫彩', '黑白', '异色黑白'];
