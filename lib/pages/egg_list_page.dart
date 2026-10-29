@@ -5,9 +5,28 @@ import 'package:lpinyin/lpinyin.dart';
 import '../db/database.dart';
 import '../models/models.dart';
 
+// --- 新增：中文名称到英文文件名的映射字典 ---
+const Map<String, String> medalIconMap = {
+  '大块头': 'big_body',
+  '满重': 'full_weight',
+  '小不点': 'tiny',
+  '满轻': 'full_light',
+  '婉转声': 'gentle_voice',
+  '满音婉转声': 'full_gentle_voice',
+  '粗嗓门': 'rough_voice',
+  '满音粗嗓门': 'full_rough_voice',
+};
+
 Widget _buildMedalChip(String medal) {
+  // 优先从字典里找英文名，找不到就用原名（防止报错）
+  final fileName = medalIconMap[medal] ?? medal;
   return Row(mainAxisSize: MainAxisSize.min, children: [
-    Image.asset('assets/medals/$medal.png', width: 16, height: 16, errorBuilder: (c,e,s) => const Icon(Icons.military_tech, size: 16, color: Colors.grey)),
+    Image.asset(
+      'assets/medals/$fileName.png', 
+      width: 16, 
+      height: 16, 
+      errorBuilder: (c,e,s) => const Icon(Icons.military_tech, size: 16, color: Colors.grey)
+    ),
     const SizedBox(width: 4), Text(medal),
   ]);
 }
