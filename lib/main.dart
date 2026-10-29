@@ -42,7 +42,7 @@ class _MyAppState extends State<MyApp> {
       title: '精灵蛋仓库',
       debugShowCheckedModeBanner: false,
       
-      // --- 新增的中文本地化配置 ---
+      // 中文本地化配置
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
@@ -50,7 +50,6 @@ class _MyAppState extends State<MyApp> {
       ],
       supportedLocales: const [Locale('zh', 'CN')],
       locale: const Locale('zh', 'CN'),
-      // ----------------------------
 
       theme: ThemeData(
         colorSchemeSeed: _themeColor, 
@@ -58,7 +57,11 @@ class _MyAppState extends State<MyApp> {
         useMaterial3: true,
         fontFamily: 'Microsoft YaHei',
         fontFamilyFallback: const ['PingFang SC', 'Roboto', 'sans-serif'],
-        inputDecorationTheme: const InputDecorationTheme(border: OutlineInputBorder(), isDense: true),
+        // 这里就是调整了输入框高度的核心代码
+        inputDecorationTheme: const InputDecorationTheme(
+          border: OutlineInputBorder(),
+          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16), 
+        ),
       ),
       home: MainLayout(
         currentThemeColor: _themeColor, currentBgColor: _bgColor,
