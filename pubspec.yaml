@@ -9,9 +9,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_localizations: # 新增这一行
+  flutter_localizations:
     sdk: flutter
-  # ... 下面的依赖保持不变 ...
   sqflite: ^2.3.3
   sqflite_common_ffi: ^2.3.3
   path: ^1.9.0
