@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
+import 'dart:typed_data'; // 新增
+import 'package:excel/excel.dart'; // 新增
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
@@ -24,7 +26,7 @@ class AppDatabase {
       sqfliteFfiInit();
       databaseFactory = databaseFactoryFfi;
     }
-    final path = p.join(dir.path, 'elf_egg_v16.db'); // 版本升级为 v16
+    final path = p.join(dir.path, 'elf_egg_v16.db'); 
     return databaseFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(
@@ -56,6 +58,7 @@ class AppDatabase {
     );
   }
 
+  // ... (备份相关方法保持不变)
   Future<String?> exportBackup() async {
     final db = await instance.db;
     final tables = ['accounts', 'parents', 'pairings', 'pairing_fathers', 'eggs', 'price_rules', 'blacklist', 'egg_categories', 'articles'];
@@ -110,6 +113,69 @@ class AppDatabase {
       });
       return true;
     } catch (e) { return false; }
+  }
+
+  // ================= 新增：导出为 Excel =================
+  Future<String?> exportToExcel() async {
+    final db = await instance.db;
+    final eggs = await db.query('eggs', orderBy: 'created_at DESC');
+
+    var excel = Excel.createExcel();
+    Sheet sheetObject = excel['精灵蛋数据'];
+    
+    // 删除默认的 Sheet1
+    excel.delete('Sheet1');
+
+    // 设置表头
+    List<String> headers = [
+      '蛋名', '重量(kg)', '窝类型', '收取日期', '性格', '标价', 
+      '状态', '售卖平台', '买家平台名称', '买家平台ID', '买家游戏名称', '买家游戏ID', 
+      '父本(快照)', '母本(快照)', '备注', '售后方案'
+    ];
+    
+    sheetObject.appendRow(headers.map((e) => TextCellValue(e)).toList());
+
+    // 写入数据
+    for (var row in eggs) {
+      sheetObject.appendRow([
+        TextCellValue(row['name']?.toString() ?? ''),
+        DoubleCellValue((row['weight'] as num?)?.toDouble() ?? 0),
+        TextCellValue(row['nest_type']?.toString() ?? '普窝'),
+        TextCellValue(row['obtained_date']?.toString() ?? ''),
+        TextCellValue(row['nature']?.toString() ?? ''),
+        DoubleCellValue((row['price'] as num?)?.toDouble() ?? 0),
+        TextCellValue(row['status']?.toString() ?? '在库'),
+        TextCellValue(row['sale_platform']?.toString() ?? ''),
+        TextCellValue(row['buyer_platform_name']?.toString() ?? ''),
+        TextCellValue(row['buyer_platform_id']?.toString() ?? ''),
+        TextCellValue(row['buyer_game_name']?.toString() ?? ''),
+        TextCellValue(row['buyer_game_id']?.toString() ?? ''),
+        TextCellValue(row['father_name_snapshot']?.toString() ?? ''),
+        TextCellValue(row['mother_name_snapshot']?.toString() ?? ''),
+        TextCellValue(row['note']?.toString() ?? ''),
+        TextCellValue(row['after_sales_plan']?.toString() ?? ''),
+      ]);
+    }
+
+    // 调整列宽（可选优化）
+    for (var i = 0; i < headers.length; i++) {
+      sheetObject.setColumnWidth(i, 15.0);
+    }
+
+    // 生成文件并保存
+    List<int>? fileBytes = excel.save();
+    if (fileBytes != null) {
+      try {
+        return await FilePicker.platform.saveFile(
+          dialogTitle: '保存 Excel 表格',
+          fileName: '精灵蛋数据导出.xlsx',
+          bytes: Uint8List.fromList(fileBytes),
+        );
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
   }
 }
 
