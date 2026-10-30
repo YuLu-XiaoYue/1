@@ -80,6 +80,7 @@ class PairingPageState extends State<PairingPage> {
                 onSecondaryTap: () => _deleteGroup(g['id']),
                 child: Slidable(
                   key: ValueKey(g['id']),
+                  extentRatio: 0.25, // 控制滑开比例
                   endActionPane: ActionPane(motion: const ScrollMotion(), children: [SlidableAction(onPressed: (_) => _deleteGroup(g['id']), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')]),
                   child: Card(
                     child: Padding(
@@ -88,7 +89,6 @@ class PairingPageState extends State<PairingPage> {
                         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('第 ${i + 1} 组', style: const TextStyle(fontWeight: FontWeight.bold)), Text('在库: ${g['inStock']} / 已售出: ${g['sold']}', style: const TextStyle(fontSize: 12, color: Colors.grey))]),
                         const Divider(),
                         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          // 修复：传入 context
                           Expanded(child: buildParentCard(context, g['mother'], true)),
                           const SizedBox(width: 8),
                           Expanded(child: Column(children: (g['fathers'] as List<Parent>).map((f) => Padding(padding: const EdgeInsets.only(bottom: 8), child: buildParentCard(context, f, false))).toList())),
@@ -102,7 +102,17 @@ class PairingPageState extends State<PairingPage> {
           )),
         ],
       ),
-      floatingActionButton: _currentAccount.isEmpty ? null : FloatingActionButton(onPressed: () async { await Navigator.push(context, MaterialPageRoute(builder: (_) => PairingEditPage(account: _currentAccount))); _load(); }, child: const Icon(Icons.add)),
+      // 调整悬浮按钮位置
+      floatingActionButton: _currentAccount.isEmpty ? null : Padding(
+        padding: const EdgeInsets.only(bottom: 24, right: 8),
+        child: FloatingActionButton(
+          onPressed: () async { 
+            await Navigator.push(context, MaterialPageRoute(builder: (_) => PairingEditPage(account: _currentAccount))); 
+            _load(); 
+          }, 
+          child: const Icon(Icons.add)
+        ),
+      ),
     );
   }
 }
@@ -150,7 +160,6 @@ class _PairingEditPageState extends State<PairingEditPage> {
             itemCount: _mothers.length,
             itemBuilder: (context, i) {
               final m = _mothers[i];
-              // 修复：传入 context
               return Padding(padding: const EdgeInsets.only(right: 12), child: SizedBox(width: 200, child: buildParentCard(context, m, true, isSelected: _motherId == m.id, onTap: () => setState(() => _motherId = m.id))));
             },
           ),
@@ -165,7 +174,6 @@ class _PairingEditPageState extends State<PairingEditPage> {
             itemCount: _fathers.length,
             itemBuilder: (context, i) {
               final f = _fathers[i];
-              // 修复：传入 context
               return Padding(padding: const EdgeInsets.only(right: 12), child: SizedBox(width: 200, child: buildParentCard(context, f, false, isSelected: _fatherIds.contains(f.id), onTap: () { setState(() { if (_fatherIds.contains(f.id)) { _fatherIds.remove(f.id); } else { _fatherIds.add(f.id!); } }); })));
             },
           ),
