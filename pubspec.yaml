@@ -21,7 +21,8 @@ dependencies:
   flutter_slidable: ^3.1.0
   lpinyin: ^2.0.3
   package_info_plus: ^8.0.0
-  excel: ^4.0.6  # 新增这一行
+  excel: ^4.0.6
+  archive: ^3.4.10 # 新增这一行
 
 dev_dependencies:
   flutter_lints: ^4.0.0
