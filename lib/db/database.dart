@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
@@ -33,7 +34,6 @@ class AppDatabase {
           await db.execute('CREATE TABLE parents(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, gender TEXT, account TEXT, nature TEXT, height REAL, weight REAL, voice REAL, bloodline TEXT, icon_path TEXT, created_at INTEGER, appearance TEXT)');
           await db.execute('CREATE TABLE pairings(id INTEGER PRIMARY KEY AUTOINCREMENT, account TEXT, mother_id INTEGER)');
           await db.execute('CREATE TABLE pairing_fathers(pairing_id INTEGER, father_id INTEGER, PRIMARY KEY(pairing_id, father_id))');
-          // 加入 pairing_id
           await db.execute('CREATE TABLE eggs(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, weight REAL, medals TEXT, nature TEXT, account TEXT, pairing_id INTEGER, father_id INTEGER, mother_id INTEGER, father_name_snapshot TEXT, mother_name_snapshot TEXT, icon_path TEXT, price REAL, status TEXT, sale_platform TEXT, buyer_platform_name TEXT, buyer_platform_id TEXT, buyer_game_name TEXT, buyer_game_id TEXT, note TEXT, created_at INTEGER, updated_at INTEGER, nest_type TEXT, obtained_date TEXT, after_sales_plan TEXT, is_after_sales INTEGER)');
           await db.execute('CREATE TABLE price_rules(id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT, min_weight REAL, max_weight REAL, price REAL)');
           await db.execute('CREATE TABLE blacklist(id INTEGER PRIMARY KEY AUTOINCREMENT, platform TEXT, buyer_name TEXT, platform_id TEXT, game_id TEXT, reason TEXT)');
@@ -41,13 +41,22 @@ class AppDatabase {
           await db.execute('CREATE TABLE articles(id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT, content TEXT)');
           
           await db.insert('accounts', {'name': '默认账号'});
-          await db.insert('articles', {'type': 'tutorial', 'content': '欢迎使用精灵蛋仓库！'});
-          await db.insert('articles', {'type': 'log', 'content': 'v1.0.0\n- 初始版本发布。'});
+          
+          String tutorialContent = '欢迎使用精灵蛋仓库！';
+          String logContent = 'v1.0.0\n- 初始版本发布。';
+          try {
+            tutorialContent = await rootBundle.loadString('assets/tutorial.txt');
+            logContent = await rootBundle.loadString('assets/update_log.txt');
+          } catch (e) { debugPrint('未找到默认文本文件'); }
+          
+          await db.insert('articles', {'type': 'tutorial', 'content': tutorialContent});
+          await db.insert('articles', {'type': 'log', 'content': logContent});
         },
       ),
     );
   }
 
+  // ================= 全量备份 =================
   Future<String?> exportBackup() async {
     final db = await instance.db;
     final tables = ['accounts', 'parents', 'pairings', 'pairing_fathers', 'eggs', 'price_rules', 'blacklist', 'egg_categories', 'articles'];
@@ -55,7 +64,7 @@ class AppDatabase {
     for (var t in tables) { backup[t] = await db.query(t); }
     String jsonStr = jsonEncode(backup);
     try {
-      return await FilePicker.platform.saveFile(dialogTitle: '保存备份文件', fileName: 'elf_egg_backup.json', bytes: utf8.encode(jsonStr));
+      return await FilePicker.platform.saveFile(dialogTitle: '保存全量备份', fileName: 'elf_egg_full_backup.json', bytes: utf8.encode(jsonStr));
     } catch (e) { return null; }
   }
 
@@ -65,12 +74,44 @@ class AppDatabase {
       if (res == null || res.files.single.path == null) return false;
       final jsonStr = await File(res.files.single.path!).readAsString();
       final Map<String, dynamic> data = jsonDecode(jsonStr);
+      
+      // 校验是否包含核心数据表，防止导错文件
+      if (!data.containsKey('eggs') || !data.containsKey('parents')) return false;
+
       final db = await instance.db;
       await db.transaction((txn) async {
         for (var t in ['accounts', 'parents', 'pairings', 'pairing_fathers', 'eggs', 'price_rules', 'blacklist', 'egg_categories', 'articles']) {
           await txn.delete(t);
           for (var row in data[t] ?? []) { await txn.insert(t, Map<String, dynamic>.from(row)); }
         }
+      });
+      return true;
+    } catch (e) { return false; }
+  }
+
+  // ================= 纯文本备份（新手教学/日志） =================
+  Future<String?> exportArticlesOnly() async {
+    final db = await instance.db;
+    final rows = await db.query('articles');
+    String jsonStr = jsonEncode({'articles': rows});
+    try {
+      return await FilePicker.platform.saveFile(dialogTitle: '保存文本备份', fileName: 'elf_egg_text_backup.json', bytes: utf8.encode(jsonStr));
+    } catch (e) { return null; }
+  }
+
+  Future<bool> importArticlesOnly() async {
+    try {
+      final res = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['json']);
+      if (res == null || res.files.single.path == null) return false;
+      final jsonStr = await File(res.files.single.path!).readAsString();
+      final Map<String, dynamic> data = jsonDecode(jsonStr);
+      
+      if (!data.containsKey('articles')) return false; // 校验
+
+      final db = await instance.db;
+      await db.transaction((txn) async {
+        await txn.delete('articles'); // 只删文本表
+        for (var row in data['articles']) { await txn.insert('articles', Map<String, dynamic>.from(row)); }
       });
       return true;
     } catch (e) { return false; }
