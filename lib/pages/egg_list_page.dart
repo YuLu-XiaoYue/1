@@ -261,7 +261,17 @@ class EggListPageState extends State<EggListPage> {
           ),
         ],
       ),
-      floatingActionButton: widget.viewType == '在库/预定' ? FloatingActionButton(onPressed: () async { await Navigator.push(context, MaterialPageRoute(builder: (_) => const EggEditPage())); _load(); }, child: const Icon(Icons.add)) : null,
+      // 调整悬浮按钮的位置
+      floatingActionButton: widget.viewType == '在库/预定' ? Padding(
+        padding: const EdgeInsets.only(bottom: 24, right: 8),
+        child: FloatingActionButton(
+          onPressed: () async { 
+            await Navigator.push(context, MaterialPageRoute(builder: (_) => const EggEditPage())); 
+            _load(); 
+          }, 
+          child: const Icon(Icons.add)
+        ),
+      ) : null,
     );
   }
 
@@ -284,8 +294,8 @@ class EggListPageState extends State<EggListPage> {
           onSecondaryTap: () => _deleteEgg(e.id!),
           child: Slidable(
             key: ValueKey(e.id),
+            extentRatio: 0.25, // 控制滑开比例，把删除按钮变小
             endActionPane: ActionPane(motion: const ScrollMotion(), children: [SlidableAction(onPressed: (_) => _deleteEgg(e.id!), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')]),
-            // 修复：将 InkWell 放在 Slidable 内部，接管 onTap
             child: InkWell(
               onTap: () async { 
                 await Navigator.push(context, MaterialPageRoute(builder: (_) => EggEditPage(egg: e))); 
@@ -345,8 +355,8 @@ class EggListPageState extends State<EggListPage> {
                     onSecondaryTap: () => _deleteEgg(e.id!),
                     child: Slidable(
                       key: ValueKey(e.id),
+                      extentRatio: 0.25, // 控制滑开比例
                       endActionPane: ActionPane(motion: const ScrollMotion(), children: [SlidableAction(onPressed: (_) => _deleteEgg(e.id!), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')]),
-                      // 修复：将 InkWell 放在 Slidable 内部
                       child: InkWell(
                         onTap: () async { 
                           await Navigator.push(context, MaterialPageRoute(builder: (_) => EggEditPage(egg: e))); 
