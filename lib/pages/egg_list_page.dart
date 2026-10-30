@@ -5,27 +5,15 @@ import 'package:lpinyin/lpinyin.dart';
 import '../db/database.dart';
 import '../models/models.dart';
 
-// 中文名称到英文文件名的映射字典
 const Map<String, String> medalIconMap = {
-  '大块头': 'big_body',
-  '满重': 'full_weight',
-  '小不点': 'tiny',
-  '满轻': 'full_light',
-  '婉转声': 'gentle_voice',
-  '满音婉转声': 'full_gentle_voice',
-  '粗嗓门': 'rough_voice',
-  '满音粗嗓门': 'full_rough_voice',
+  '大块头': 'big_body', '满重': 'full_weight', '小不点': 'tiny', '满轻': 'full_light',
+  '婉转声': 'gentle_voice', '满音婉转声': 'full_gentle_voice', '粗嗓门': 'rough_voice', '满音粗嗓门': 'full_rough_voice',
 };
 
 Widget _buildMedalChip(String medal) {
   final fileName = medalIconMap[medal] ?? medal;
   return Row(mainAxisSize: MainAxisSize.min, children: [
-    Image.asset(
-      'assets/medals/$fileName.png', 
-      width: 16, 
-      height: 16, 
-      errorBuilder: (c,e,s) => const Icon(Icons.military_tech, size: 16, color: Colors.grey)
-    ),
+    Image.asset('assets/medals/$fileName.png', width: 16, height: 16, errorBuilder: (c,e,s) => const Icon(Icons.military_tech, size: 16, color: Colors.grey)),
     const SizedBox(width: 4), Text(medal),
   ]);
 }
@@ -100,7 +88,7 @@ class _EggListPageState extends State<EggListPage> {
   Widget build(BuildContext context) {
     var visible = _eggs.where((e) {
       bool matchTab = _currentCategory == '全部' || e.name.contains(_currentCategory);
-      bool matchSearch = _searchQuery.isEmpty || e.name.contains(_searchQuery) || (e.buyerName ?? '').contains(_searchQuery) || (e.nature ?? '').contains(_searchQuery);
+      bool matchSearch = _searchQuery.isEmpty || e.name.contains(_searchQuery) || (e.buyerPlatformName ?? '').contains(_searchQuery) || (e.buyerGameName ?? '').contains(_searchQuery) || (e.nature ?? '').contains(_searchQuery);
       bool matchMedal = true;
       if (_filterMedals.isNotEmpty) {
         if (_filterMatchAll) matchMedal = _filterMedals.every((m) => e.medals.contains(m));
@@ -118,7 +106,7 @@ class _EggListPageState extends State<EggListPage> {
     List<String> alphabet = [];
     if (widget.viewType != '在库/预定') {
       for (var e in visible) {
-        String buyer = e.buyerName ?? '无';
+        String buyer = e.buyerPlatformName ?? e.buyerGameName ?? '无';
         String firstLetter = 'Z';
         if (buyer != '无' && buyer.isNotEmpty) {
           try { firstLetter = PinyinHelper.getShortPinyin(buyer)[0].toUpperCase(); } catch (_) {}
@@ -246,7 +234,7 @@ class _EggListPageState extends State<EggListPage> {
                     child: ListTile(
                       leading: getLocalImage(e.iconPath, 'egg_icons', size: 40),
                       title: Text('${e.name}  ${e.weight}kg'),
-                      subtitle: Text('买家: ${e.buyerName ?? "无"} | ${e.isAfterSales ? "已售后" : ""}'),
+                      subtitle: Text('买家: ${e.buyerPlatformName ?? e.buyerGameName ?? "无"} | ${e.isAfterSales ? "已售后" : ""}'),
                       trailing: Text(e.status, style: TextStyle(color: e.status == '需售后' ? Colors.orange : Colors.grey, fontWeight: FontWeight.bold)),
                       onTap: () async { await Navigator.push(context, MaterialPageRoute(builder: (_) => EggEditPage(egg: e))); _load(); },
                     ),
@@ -288,7 +276,10 @@ class EggEditPage extends StatefulWidget {
 }
 
 class _EggEditPageState extends State<EggEditPage> {
-  final _nameCtrl = TextEditingController(), _weightCtrl = TextEditingController(), _natureCtrl = TextEditingController(), _priceCtrl = TextEditingController(), _platformCtrl = TextEditingController(), _buyerCtrl = TextEditingController(), _buyerIdCtrl = TextEditingController(), _afterSalesCtrl = TextEditingController();
+  final _nameCtrl = TextEditingController(), _weightCtrl = TextEditingController(), _natureCtrl = TextEditingController(), _priceCtrl = TextEditingController();
+  final _salePlatformCtrl = TextEditingController(), _buyerPlatNameCtrl = TextEditingController(), _buyerPlatIdCtrl = TextEditingController(), _buyerGameNameCtrl = TextEditingController(), _buyerGameIdCtrl = TextEditingController();
+  final _noteCtrl = TextEditingController(), _afterSalesCtrl = TextEditingController();
+  
   String _status = '在库', _nestType = '普窝', _obtainedDate = DateTime.now().toString().substring(0, 10);
   String? _sizeMedal, _voiceMedal, _iconPath, _selectedAccount;
   List<Account> _accounts = [];
@@ -303,7 +294,11 @@ class _EggEditPageState extends State<EggEditPage> {
     super.initState();
     if (widget.egg != null) {
       final e = widget.egg!;
-      _nameCtrl.text = e.name; _weightCtrl.text = e.weight.toString(); _natureCtrl.text = e.nature ?? ''; _priceCtrl.text = e.price?.toString() ?? ''; _platformCtrl.text = e.salePlatform ?? ''; _buyerCtrl.text = e.buyerName ?? ''; _buyerIdCtrl.text = e.buyerGameId ?? ''; _afterSalesCtrl.text = e.afterSalesPlan ?? '';
+      _nameCtrl.text = e.name; _weightCtrl.text = e.weight.toString(); _natureCtrl.text = e.nature ?? ''; _priceCtrl.text = e.price?.toString() ?? '';
+      _salePlatformCtrl.text = e.salePlatform ?? ''; _buyerPlatNameCtrl.text = e.buyerPlatformName ?? '';
+      _buyerPlatIdCtrl.text = e.buyerPlatformId ?? ''; _buyerGameNameCtrl.text = e.buyerGameName ?? '';
+      _buyerGameIdCtrl.text = e.buyerGameId ?? ''; _noteCtrl.text = e.note ?? ''; _afterSalesCtrl.text = e.afterSalesPlan ?? '';
+      
       _status = e.status; _nestType = e.nestType; _obtainedDate = e.obtainedDate; _iconPath = e.iconPath; _selectedAccount = e.account; _fatherId = e.fatherId; _motherId = e.motherId; _isAfterSales = e.isAfterSales;
       if (_fatherId != null || _motherId != null) _isParentLocked = true;
       for (var m in e.medals) { if (sizeMedals.contains(m)) _sizeMedal = m; if (voiceMedals.contains(m)) _voiceMedal = m; }
@@ -336,25 +331,15 @@ class _EggEditPageState extends State<EggEditPage> {
   Future<void> _autoFillPrice(String weightStr) async {
     final weight = double.tryParse(weightStr);
     if (weight == null) { setState(() => _isOutOfRange = false); return; }
-    
     final db = await AppDatabase.instance.db;
-    // 1. 根据蛋名匹配分类
     final catRows = await db.query('egg_categories');
     String matchedCategory = '';
     for (var row in catRows) {
       String catName = row['name'] as String;
-      if (_nameCtrl.text.contains(catName)) {
-        matchedCategory = catName;
-        break;
-      }
+      if (_nameCtrl.text.contains(catName)) { matchedCategory = catName; break; }
     }
+    if (matchedCategory.isEmpty) { setState(() => _isOutOfRange = true); return; }
 
-    if (matchedCategory.isEmpty) {
-      setState(() => _isOutOfRange = true);
-      return;
-    }
-
-    // 2. 根据分类和重量查规则
     final rules = await db.query('price_rules', where: 'category = ?', whereArgs: [matchedCategory]);
     for (var r in rules) {
       if (weight >= (r['min_weight'] as double) && weight <= (r['max_weight'] as double)) {
@@ -392,7 +377,9 @@ class _EggEditPageState extends State<EggEditPage> {
     if (_status == '需售后') _isAfterSales = true;
 
     final e = Egg(
-      id: widget.egg?.id, name: _nameCtrl.text, weight: double.tryParse(_weightCtrl.text) ?? 0, medals: medals, nature: _natureCtrl.text, price: double.tryParse(_priceCtrl.text), status: _status, iconPath: finalPath, createdAt: widget.egg?.createdAt, salePlatform: _platformCtrl.text, buyerName: _buyerCtrl.text, buyerGameId: _buyerIdCtrl.text, nestType: _nestType, obtainedDate: _obtainedDate, account: _selectedAccount, fatherId: _fatherId, motherId: _motherId, fatherNameSnapshot: fatherName, motherNameSnapshot: motherName, afterSalesPlan: _afterSalesCtrl.text, isAfterSales: _isAfterSales,
+      id: widget.egg?.id, name: _nameCtrl.text, weight: double.tryParse(_weightCtrl.text) ?? 0, medals: medals, nature: _natureCtrl.text, price: double.tryParse(_priceCtrl.text), status: _status, iconPath: finalPath, createdAt: widget.egg?.createdAt, 
+      salePlatform: _salePlatformCtrl.text, buyerPlatformName: _buyerPlatNameCtrl.text, buyerPlatformId: _buyerPlatIdCtrl.text, buyerGameName: _buyerGameNameCtrl.text, buyerGameId: _buyerGameIdCtrl.text, note: _noteCtrl.text,
+      nestType: _nestType, obtainedDate: _obtainedDate, account: _selectedAccount, fatherId: _fatherId, motherId: _motherId, fatherNameSnapshot: fatherName, motherNameSnapshot: motherName, afterSalesPlan: _afterSalesCtrl.text, isAfterSales: _isAfterSales,
     );
     if (e.id == null) { await db.insert('eggs', e.toMap()); } else { await db.update('eggs', e.toMap(), where: 'id=?', whereArgs: [e.id]); }
     if (mounted) Navigator.pop(context);
@@ -411,22 +398,13 @@ class _EggEditPageState extends State<EggEditPage> {
           ElevatedButton.icon(onPressed: () async { final res = await FilePicker.platform.pickFiles(type: FileType.image); if (res != null && res.files.single.path != null) { final saved = await copyImageToLocal(res.files.single.path!, 'egg_icons'); setState(() => _iconPath = saved); } }, icon: const Icon(Icons.image), label: const Text('选图')),
         ]),
         const SizedBox(height: 16),
-        TextField(
-          controller: _nameCtrl, 
-          enabled: !isReadOnly, 
-          decoration: const InputDecoration(labelText: '蛋名 (包含分类名可自动匹配价格)'),
-          // 监听蛋名改变，重新匹配价格
-          onChanged: (v) => _autoFillPrice(_weightCtrl.text),
-        ),
+        TextField(controller: _nameCtrl, enabled: !isReadOnly, decoration: const InputDecoration(labelText: '蛋名'), onChanged: (v) => _autoFillPrice(_weightCtrl.text)),
         
         const SizedBox(height: 16),
         Row(children: [
           Expanded(
             child: DropdownButtonFormField<String>(
-              value: _nestType,
-              isExpanded: true,
-              menuMaxHeight: 250,
-              decoration: const InputDecoration(labelText: '窝类型'),
+              value: _nestType, isExpanded: true, menuMaxHeight: 250, decoration: const InputDecoration(labelText: '窝类型'),
               items: ['普窝', '绿窝'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
               onChanged: isReadOnly ? null : (v) => setState(() => _nestType = v!),
             )
@@ -439,16 +417,13 @@ class _EggEditPageState extends State<EggEditPage> {
         Row(children: [
           Expanded(
             child: DropdownButtonFormField<String>(
-              value: _selectedAccount,
-              isExpanded: true,
-              menuMaxHeight: 250,
-              decoration: const InputDecoration(labelText: '所属账号'),
+              value: _selectedAccount, isExpanded: true, menuMaxHeight: 250, decoration: const InputDecoration(labelText: '所属账号'),
               items: _accounts.map((a) => DropdownMenuItem(value: a.name, child: Text(a.name))).toList(),
               onChanged: isReadOnly ? null : (v) { setState(() { _selectedAccount = v; _fatherId = null; _motherId = null; _isParentLocked = false; _loadParents(); }); },
             )
           ),
           const SizedBox(width: 16),
-          Expanded(child: TextField(controller: _weightCtrl, enabled: !isReadOnly, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: '重量(kg)', errorText: _isOutOfRange ? '此重量不在该分类的设置范围内！' : null), onChanged: _autoFillPrice)),
+          Expanded(child: TextField(controller: _weightCtrl, enabled: !isReadOnly, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: '重量(kg)', errorText: _isOutOfRange ? '不在范围内' : null), onChanged: _autoFillPrice)),
         ]),
 
         const SizedBox(height: 16),
@@ -456,10 +431,7 @@ class _EggEditPageState extends State<EggEditPage> {
           Expanded(child: Row(children: [
             Expanded(
               child: DropdownButtonFormField<int?>(
-                value: _motherId,
-                isExpanded: true,
-                menuMaxHeight: 250,
-                decoration: const InputDecoration(labelText: '母本'),
+                value: _motherId, isExpanded: true, menuMaxHeight: 250, decoration: const InputDecoration(labelText: '母本'),
                 items: [
                   const DropdownMenuItem<int?>(value: null, child: Text('无')),
                   ..._mothers.map((p) => DropdownMenuItem<int?>(value: p.id, child: Text(p.name))),
@@ -475,10 +447,7 @@ class _EggEditPageState extends State<EggEditPage> {
           Expanded(child: Row(children: [
             Expanded(
               child: DropdownButtonFormField<int?>(
-                value: _fatherId,
-                isExpanded: true,
-                menuMaxHeight: 250,
-                decoration: const InputDecoration(labelText: '父本'),
+                value: _fatherId, isExpanded: true, menuMaxHeight: 250, decoration: const InputDecoration(labelText: '父本'),
                 items: [
                   const DropdownMenuItem<int?>(value: null, child: Text('无')),
                   ..._fathers.map((p) => DropdownMenuItem<int?>(value: p.id, child: Text(p.name))),
@@ -508,24 +477,33 @@ class _EggEditPageState extends State<EggEditPage> {
         
         const SizedBox(height: 16),
         DropdownButtonFormField<String>(
-          value: _status,
-          isExpanded: true,
-          menuMaxHeight: 250,
-          decoration: const InputDecoration(labelText: '状态'),
+          value: _status, isExpanded: true, menuMaxHeight: 250, decoration: const InputDecoration(labelText: '状态'),
           items: ['在库', '已预定', '已售出', '需售后'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
           onChanged: (v) => setState(() => _status = v!),
         ),
         
-        if (_status != '在库') ...[
-          const SizedBox(height: 16),
-          TextField(controller: _platformCtrl, enabled: !isReadOnly, decoration: const InputDecoration(labelText: '售卖平台')),
-          const SizedBox(height: 16),
-          TextField(controller: _buyerCtrl, enabled: !isReadOnly, decoration: const InputDecoration(labelText: '买家名称')),
-          const SizedBox(height: 16),
-          TextField(controller: _buyerIdCtrl, enabled: !isReadOnly, decoration: const InputDecoration(labelText: '买家游戏ID')),
-          const SizedBox(height: 16),
-          TextField(controller: _afterSalesCtrl, enabled: _status == '需售后', maxLines: 2, decoration: const InputDecoration(labelText: '售后方案 / 备注（仅售后状态可修改）', border: OutlineInputBorder())),
-        ],
+        const SizedBox(height: 24),
+        const Text('买家与交易信息', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey)),
+        const Divider(),
+        const SizedBox(height: 8),
+        TextField(controller: _salePlatformCtrl, decoration: const InputDecoration(labelText: '售卖平台')),
+        const SizedBox(height: 12),
+        TextField(controller: _buyerPlatNameCtrl, decoration: const InputDecoration(labelText: '买家平台名称')),
+        const SizedBox(height: 12),
+        TextField(controller: _buyerPlatIdCtrl, decoration: const InputDecoration(labelText: '买家平台ID')),
+        const SizedBox(height: 12),
+        TextField(controller: _buyerGameNameCtrl, decoration: const InputDecoration(labelText: '买家游戏名称')),
+        const SizedBox(height: 12),
+        TextField(controller: _buyerGameIdCtrl, decoration: const InputDecoration(labelText: '买家游戏ID')),
+        
+        const SizedBox(height: 24),
+        const Text('其他', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey)),
+        const Divider(),
+        const SizedBox(height: 8),
+        TextField(controller: _noteCtrl, maxLines: 3, decoration: const InputDecoration(labelText: '备注')),
+        const SizedBox(height: 12),
+        TextField(controller: _afterSalesCtrl, enabled: _status == '需售后', maxLines: 3, decoration: const InputDecoration(labelText: '售后方案（仅需售后状态可填写）')),
+
         const SizedBox(height: 80),
       ]),
       floatingActionButton: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
