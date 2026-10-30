@@ -1,7 +1,7 @@
 name: elf_egg_warehouse
 description: 精灵蛋仓库
 publish_to: 'none'
-version: 1.0.0+2  # 以后更新只需要改这里！比如改成 1.1.0+2
+version: 1.0.0+1
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -20,7 +20,8 @@ dependencies:
   flutter_colorpicker: ^1.1.0
   flutter_slidable: ^3.1.0
   lpinyin: ^2.0.3
-  package_info_plus: ^8.0.0  # 新增这一行
+  package_info_plus: ^8.0.0
+  excel: ^4.0.6  # 新增这一行
 
 dev_dependencies:
   flutter_lints: ^4.0.0
