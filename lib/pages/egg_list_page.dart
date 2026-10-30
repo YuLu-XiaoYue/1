@@ -35,7 +35,7 @@ class EggListPageState extends State<EggListPage> {
   String _sortType = '时间由近到远';
   final List<String> _sortTypes = ['时间由近到远', '时间由远到近', '蛋重高到低', '蛋重低到高'];
   
-  Set<String> _filterMedals = {};
+  Set<String> _filterTags = {};
   bool _filterMatchAll = false;
 
   final ScrollController _scrollController = ScrollController();
@@ -89,42 +89,27 @@ class EggListPageState extends State<EggListPage> {
     if (confirm == true) { final db = await AppDatabase.instance.db; await db.delete('eggs', where: 'id = ?', whereArgs: [id]); _load(); }
   }
 
-  // 提取公共的图标层叠展示组件（含奖牌、绿窝）
   Widget _buildEggIconWithBadges(Egg e) {
     return Stack(
       clipBehavior: Clip.none,
       children: [
         getLocalImage(e.iconPath, 'egg_icons', size: 44),
-        
-        // 右上角：奖牌图标（左右并排）
         if (e.medals.isNotEmpty)
           Positioned(
-            right: -8,
-            top: -8,
+            right: -8, top: -8,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: e.medals.map((m) => Container(
                 margin: const EdgeInsets.only(left: 2),
-                decoration: const BoxDecoration(shape: BoxShape.circle), // 去掉了白底
-                child: Image.asset(
-                  'assets/medals/${medalIconMap[m] ?? m}.png', 
-                  width: 16, height: 16, 
-                  errorBuilder: (c,e,s) => const Icon(Icons.star, size: 16, color: Colors.amber)
-                ),
+                decoration: const BoxDecoration(shape: BoxShape.circle),
+                child: Image.asset('assets/medals/${medalIconMap[m] ?? m}.png', width: 16, height: 16, errorBuilder: (c,e,s) => const Icon(Icons.star, size: 16, color: Colors.amber)),
               )).toList(),
             ),
           ),
-          
-        // 右下角：绿窝图标（去掉了白底）
         if (e.nestType == '绿窝')
           Positioned(
-            right: -6, 
-            bottom: -6, 
-            child: Image.asset(
-              'assets/nest_types/green_nest.png', 
-              width: 20, height: 20, 
-              errorBuilder: (c,e,s) => const Icon(Icons.eco, color: Colors.green, size: 16)
-            ),
+            right: -6, bottom: -6, 
+            child: Image.asset('assets/nest_types/green_nest.png', width: 20, height: 20, errorBuilder: (c,e,s) => const Icon(Icons.eco, color: Colors.green, size: 16))
           ),
       ],
     );
@@ -135,12 +120,26 @@ class EggListPageState extends State<EggListPage> {
     var visible = _eggs.where((e) {
       bool matchTab = _currentCategory == '全部' || e.name.contains(_currentCategory);
       bool matchSearch = _searchQuery.isEmpty || e.name.contains(_searchQuery) || (e.buyerPlatformName ?? '').contains(_searchQuery) || (e.buyerGameName ?? '').contains(_searchQuery) || (e.nature ?? '').contains(_searchQuery);
-      bool matchMedal = true;
-      if (_filterMedals.isNotEmpty) {
-        if (_filterMatchAll) matchMedal = _filterMedals.every((m) => e.medals.contains(m));
-        else matchMedal = _filterMedals.any((m) => e.medals.contains(m));
+      
+      bool matchTags = true;
+      if (_filterTags.isNotEmpty) {
+        List<bool> conditions = [];
+        for (var tag in _filterTags) {
+          if (tag == '绿窝') {
+            conditions.add(e.nestType == '绿窝');
+          } else {
+            conditions.add(e.medals.contains(tag));
+          }
+        }
+        
+        if (_filterMatchAll) {
+          matchTags = conditions.every((c) => c == true);
+        } else {
+          matchTags = conditions.any((c) => c == true);
+        }
       }
-      return matchTab && matchSearch && matchMedal;
+      
+      return matchTab && matchSearch && matchTags;
     }).toList();
 
     if (_sortType == '时间由近到远') visible.sort((a, b) => (b.createdAt ?? 0).compareTo(a.createdAt ?? 0));
@@ -199,13 +198,53 @@ class EggListPageState extends State<EggListPage> {
                 PopupMenuButton<String>(
                   tooltip: '筛选与过滤',
                   icon: const Icon(Icons.filter_alt),
-                  onSelected: (v) { if (v == 'clear') setState(() => _filterMedals.clear()); else if (v == 'toggle') setState(() => _filterMatchAll = !_filterMatchAll); else setState(() { if (_filterMedals.contains(v)) _filterMedals.remove(v); else _filterMedals.add(v); }); },
+                  onSelected: (v) { 
+                    if (v == 'clear') { setState(() => _filterTags.clear()); } 
+                    else if (v == 'toggle') { setState(() => _filterMatchAll = !_filterMatchAll); } 
+                    else { 
+                      setState(() { 
+                        if (_filterTags.contains(v)) { _filterTags.remove(v); } else { _filterTags.add(v); } 
+                      }); 
+                    } 
+                  },
                   itemBuilder: (c) => [
                     PopupMenuItem(value: 'toggle', child: Text('当前条件: ${_filterMatchAll ? "全部满足" : "满足其一"}')),
                     const PopupMenuItem(value: 'clear', child: Text('清空筛选')),
                     const PopupMenuDivider(),
-                    ...sizeMedals.map((m) => CheckedPopupMenuItem(value: m, checked: _filterMedals.contains(m), child: Text(m))),
-                    ...voiceMedals.map((m) => CheckedPopupMenuItem(value: m, checked: _filterMedals.contains(m), child: Text(m))),
+                    CheckedPopupMenuItem(
+                      value: '绿窝',
+                      checked: _filterTags.contains('绿窝'),
+                      child: Row(
+                        children: [
+                          Image.asset('assets/nest_types/green_nest.png', width: 18, height: 18, errorBuilder: (c,e,s) => const Icon(Icons.eco, size: 18, color: Colors.green)), 
+                          const SizedBox(width: 8),
+                          const Text('绿窝'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuDivider(),
+                    ...sizeMedals.map((m) => CheckedPopupMenuItem(
+                      value: m, 
+                      checked: _filterTags.contains(m), 
+                      child: Row(
+                        children: [
+                          Image.asset('assets/medals/${medalIconMap[m] ?? m}.png', width: 18, height: 18, errorBuilder: (c,e,s) => const Icon(Icons.military_tech, size: 18, color: Colors.grey)),
+                          const SizedBox(width: 8),
+                          Text(m)
+                        ],
+                      )
+                    )),
+                    ...voiceMedals.map((m) => CheckedPopupMenuItem(
+                      value: m, 
+                      checked: _filterTags.contains(m), 
+                      child: Row(
+                        children: [
+                          Image.asset('assets/medals/${medalIconMap[m] ?? m}.png', width: 18, height: 18, errorBuilder: (c,e,s) => const Icon(Icons.military_tech, size: 18, color: Colors.grey)),
+                          const SizedBox(width: 8),
+                          Text(m)
+                        ],
+                      )
+                    )),
                   ],
                 ),
                 PopupMenuButton<String>(
@@ -250,13 +289,10 @@ class EggListPageState extends State<EggListPage> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
                 children: [
-                  // 序号
                   SizedBox(width: 24, child: Text('${i + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey))),
                   const SizedBox(width: 8),
-                  // 带角标的图标
                   _buildEggIconWithBadges(e),
-                  const SizedBox(width: 16), // 增加图标和文字的距离，防止拥挤
-                  // 文字部分
+                  const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -267,7 +303,6 @@ class EggListPageState extends State<EggListPage> {
                       ],
                     ),
                   ),
-                  // 状态
                   Text(e.status, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold)),
                 ],
               ),
@@ -478,7 +513,8 @@ class _EggEditPageState extends State<EggEditPage> {
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            SizedBox(width: 140, child: buildParentCard(g['mother'], true)),
+                            // 修复：传入 context
+                            SizedBox(width: 140, child: buildParentCard(context, g['mother'], true)),
                             const SizedBox(width: 8),
                             Expanded(
                               child: SizedBox(
@@ -490,7 +526,8 @@ class _EggEditPageState extends State<EggEditPage> {
                                     final f = g['fathers'][j];
                                     return Padding(
                                       padding: const EdgeInsets.only(right: 8),
-                                      child: SizedBox(width: 140, child: buildParentCard(f, false)),
+                                      // 修复：传入 context
+                                      child: SizedBox(width: 140, child: buildParentCard(context, f, false)),
                                     );
                                   },
                                 ),
@@ -646,7 +683,7 @@ class _EggEditPageState extends State<EggEditPage> {
                       children: [
                         const Text('母本', style: TextStyle(fontSize: 12, color: Colors.grey)),
                         const SizedBox(height: 4),
-                        buildParentCard(_selectedMother!, true)
+                        buildParentCard(context, _selectedMother!, true)
                       ],
                     )),
                     const SizedBox(width: 16),
@@ -662,7 +699,7 @@ class _EggEditPageState extends State<EggEditPage> {
                             itemCount: _groupFathers.length,
                             itemBuilder: (context, i) => Padding(
                               padding: const EdgeInsets.only(right: 8),
-                              child: SizedBox(width: 140, child: buildParentCard(_groupFathers[i], false)),
+                              child: SizedBox(width: 140, child: buildParentCard(context, _groupFathers[i], false)),
                             ),
                           ),
                         )
