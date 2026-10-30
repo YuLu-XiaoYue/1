@@ -185,6 +185,7 @@ class ParentPageState extends State<ParentPage> {
                     onSecondaryTap: () => _deleteParent(p),
                     child: Slidable(
                       key: ValueKey(p.id),
+                      extentRatio: 0.25, // 控制滑开比例
                       endActionPane: ActionPane(motion: const ScrollMotion(), children: [SlidableAction(onPressed: (_) => _deleteParent(p), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')]),
                       child: buildParentCard(
                         context,
@@ -202,7 +203,17 @@ class ParentPageState extends State<ParentPage> {
           ),
         ],
       ),
-      floatingActionButton: _currentAccount.isEmpty ? null : FloatingActionButton(onPressed: () async { await Navigator.push(context, MaterialPageRoute(builder: (_) => ParentEditPage(account: _currentAccount))); _loadParents(); }, child: const Icon(Icons.add)),
+      // 调整悬浮按钮的位置
+      floatingActionButton: _currentAccount.isEmpty ? null : Padding(
+        padding: const EdgeInsets.only(bottom: 24, right: 8),
+        child: FloatingActionButton(
+          onPressed: () async { 
+            await Navigator.push(context, MaterialPageRoute(builder: (_) => ParentEditPage(account: _currentAccount))); 
+            _loadParents(); 
+          }, 
+          child: const Icon(Icons.add)
+        ),
+      ),
     );
   }
 }
