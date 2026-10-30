@@ -24,13 +24,13 @@ class AppDatabase {
       sqfliteFfiInit();
       databaseFactory = databaseFactoryFfi;
     }
-    final path = p.join(dir.path, 'elf_egg_v15.db'); 
+    final path = p.join(dir.path, 'elf_egg_v16.db'); // 版本升级为 v16
     return databaseFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(
         version: 1,
         onCreate: (db, version) async {
-          await db.execute('CREATE TABLE accounts(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)');
+          await db.execute('CREATE TABLE accounts(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, account_id TEXT)');
           await db.execute('CREATE TABLE parents(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, gender TEXT, account TEXT, nature TEXT, height REAL, weight REAL, voice REAL, bloodline TEXT, icon_path TEXT, created_at INTEGER, appearance TEXT)');
           await db.execute('CREATE TABLE pairings(id INTEGER PRIMARY KEY AUTOINCREMENT, account TEXT, mother_id INTEGER)');
           await db.execute('CREATE TABLE pairing_fathers(pairing_id INTEGER, father_id INTEGER, PRIMARY KEY(pairing_id, father_id))');
@@ -40,7 +40,7 @@ class AppDatabase {
           await db.execute('CREATE TABLE egg_categories(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)');
           await db.execute('CREATE TABLE articles(id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT, content TEXT)');
           
-          await db.insert('accounts', {'name': '默认账号'});
+          await db.insert('accounts', {'name': '默认账号', 'account_id': ''});
           
           String tutorialContent = '欢迎使用精灵蛋仓库！';
           String logContent = 'v1.0.0\n- 初始版本发布。';
@@ -56,7 +56,6 @@ class AppDatabase {
     );
   }
 
-  // ================= 全量备份 =================
   Future<String?> exportBackup() async {
     final db = await instance.db;
     final tables = ['accounts', 'parents', 'pairings', 'pairing_fathers', 'eggs', 'price_rules', 'blacklist', 'egg_categories', 'articles'];
@@ -64,7 +63,7 @@ class AppDatabase {
     for (var t in tables) { backup[t] = await db.query(t); }
     String jsonStr = jsonEncode(backup);
     try {
-      return await FilePicker.platform.saveFile(dialogTitle: '保存全量备份', fileName: 'elf_egg_full_backup.json', bytes: utf8.encode(jsonStr));
+      return await FilePicker.platform.saveFile(dialogTitle: '保存备份文件', fileName: 'elf_egg_backup.json', bytes: utf8.encode(jsonStr));
     } catch (e) { return null; }
   }
 
@@ -74,8 +73,6 @@ class AppDatabase {
       if (res == null || res.files.single.path == null) return false;
       final jsonStr = await File(res.files.single.path!).readAsString();
       final Map<String, dynamic> data = jsonDecode(jsonStr);
-      
-      // 校验是否包含核心数据表，防止导错文件
       if (!data.containsKey('eggs') || !data.containsKey('parents')) return false;
 
       final db = await instance.db;
@@ -89,7 +86,6 @@ class AppDatabase {
     } catch (e) { return false; }
   }
 
-  // ================= 纯文本备份（新手教学/日志） =================
   Future<String?> exportArticlesOnly() async {
     final db = await instance.db;
     final rows = await db.query('articles');
@@ -105,12 +101,11 @@ class AppDatabase {
       if (res == null || res.files.single.path == null) return false;
       final jsonStr = await File(res.files.single.path!).readAsString();
       final Map<String, dynamic> data = jsonDecode(jsonStr);
-      
-      if (!data.containsKey('articles')) return false; // 校验
+      if (!data.containsKey('articles')) return false;
 
       final db = await instance.db;
       await db.transaction((txn) async {
-        await txn.delete('articles'); // 只删文本表
+        await txn.delete('articles');
         for (var row in data['articles']) { await txn.insert('articles', Map<String, dynamic>.from(row)); }
       });
       return true;
