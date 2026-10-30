@@ -195,6 +195,12 @@ class EggListPageState extends State<EggListPage> {
         final e = list[i];
         final statusColor = e.status == '在库' ? Colors.green : (e.status == '需售后' ? Colors.orange : Colors.grey);
         
+        // 判断是否显示“已售后”标签（排除在售后订单页面里的情况）
+        String buyerText = e.buyerPlatformName ?? e.buyerGameName ?? '无';
+        if (buyerText.isEmpty) buyerText = '无';
+        String afterSalesTag = (e.isAfterSales && widget.viewType != '售后订单') ? ' | 已售后' : '';
+        String subtitleText = widget.viewType != '在库/预定' ? '买家: $buyerText$afterSalesTag' : '收取: ${e.obtainedDate} | 标价:${e.price ?? "-"}';
+
         return GestureDetector(
           onSecondaryTap: () => _deleteEgg(e.id!),
           child: Slidable(
@@ -210,9 +216,7 @@ class EggListPageState extends State<EggListPage> {
                 ])
               ]),
               title: Text('${e.name}  ${e.weight}kg'),
-              subtitle: Text(widget.viewType != '在库/预定' 
-                  ? '买家: ${e.buyerPlatformName ?? e.buyerGameName ?? "无"} | ${e.isAfterSales ? "已售后" : ""}' 
-                  : '收取: ${e.obtainedDate} | 标价:${e.price ?? "-"}'),
+              subtitle: Text(subtitleText),
               trailing: Text(e.status, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold)),
               onTap: () async { await Navigator.push(context, MaterialPageRoute(builder: (_) => EggEditPage(egg: e))); _load(); },
             ),
@@ -237,20 +241,28 @@ class EggListPageState extends State<EggListPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), color: Colors.grey.shade200, child: Text(letter, style: const TextStyle(fontWeight: FontWeight.bold))),
-                ...groups[letter]!.map((e) => GestureDetector(
-                  onSecondaryTap: () => _deleteEgg(e.id!),
-                  child: Slidable(
-                    key: ValueKey(e.id),
-                    endActionPane: ActionPane(motion: const ScrollMotion(), children: [SlidableAction(onPressed: (_) => _deleteEgg(e.id!), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')]),
-                    child: ListTile(
-                      leading: getLocalImage(e.iconPath, 'egg_icons', size: 40),
-                      title: Text('${e.name}  ${e.weight}kg'),
-                      subtitle: Text('买家: ${e.buyerPlatformName ?? e.buyerGameName ?? "无"} | ${e.isAfterSales ? "已售后" : ""}'),
-                      trailing: Text(e.status, style: TextStyle(color: e.status == '需售后' ? Colors.orange : Colors.grey, fontWeight: FontWeight.bold)),
-                      onTap: () async { await Navigator.push(context, MaterialPageRoute(builder: (_) => EggEditPage(egg: e))); _load(); },
+                ...groups[letter]!.map((e) {
+                  // 判断是否显示“已售后”标签
+                  String buyerText = e.buyerPlatformName ?? e.buyerGameName ?? '无';
+                  if (buyerText.isEmpty) buyerText = '无';
+                  String afterSalesTag = (e.isAfterSales && widget.viewType != '售后订单') ? ' | 已售后' : '';
+                  String subtitleText = '买家: $buyerText$afterSalesTag';
+
+                  return GestureDetector(
+                    onSecondaryTap: () => _deleteEgg(e.id!),
+                    child: Slidable(
+                      key: ValueKey(e.id),
+                      endActionPane: ActionPane(motion: const ScrollMotion(), children: [SlidableAction(onPressed: (_) => _deleteEgg(e.id!), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')]),
+                      child: ListTile(
+                        leading: getLocalImage(e.iconPath, 'egg_icons', size: 40),
+                        title: Text('${e.name}  ${e.weight}kg'),
+                        subtitle: Text(subtitleText),
+                        trailing: Text(e.status, style: TextStyle(color: e.status == '需售后' ? Colors.orange : Colors.grey, fontWeight: FontWeight.bold)),
+                        onTap: () async { await Navigator.push(context, MaterialPageRoute(builder: (_) => EggEditPage(egg: e))); _load(); },
+                      ),
                     ),
-                  ),
-                ))
+                  );
+                })
               ],
             );
           }).toList(),
@@ -296,7 +308,7 @@ class _EggEditPageState extends State<EggEditPage> {
   
   int? _pairingId;
   Parent? _selectedMother;
-  List<Parent> _groupFathers = []; // 当前配对组下的所有父本
+  List<Parent> _groupFathers = []; 
   
   List<Account> _accounts = [];
   bool _isOutOfRange = false;
@@ -319,7 +331,6 @@ class _EggEditPageState extends State<EggEditPage> {
         _isParentLocked = true;
         _loadGroupData(_pairingId!);
       } else if (e.motherId != null || e.fatherId != null) {
-         // 兼容旧数据
          _isParentLocked = true;
          _loadLegacyParentData(e.motherId, e.fatherId);
       }
@@ -480,7 +491,6 @@ class _EggEditPageState extends State<EggEditPage> {
       if (exist.isNotEmpty) finalPath = exist.first['icon_path'] as String?;
     }
     
-    // 快照处理
     String? fatherName, motherName;
     if (widget.egg != null && _isParentLocked) {
       fatherName = widget.egg!.fatherNameSnapshot; motherName = widget.egg!.motherNameSnapshot;
@@ -490,6 +500,8 @@ class _EggEditPageState extends State<EggEditPage> {
     }
 
     final medals = <String>[]; if (_sizeMedal != null) medals.add(_sizeMedal!); if (_voiceMedal != null) medals.add(_voiceMedal!);
+    
+    // 状态变更为需售后时，打上售后标记
     if (_status == '需售后') _isAfterSales = true;
 
     final e = Egg(
@@ -498,7 +510,7 @@ class _EggEditPageState extends State<EggEditPage> {
       nestType: _nestType, obtainedDate: _obtainedDate, account: _selectedAccount, 
       pairingId: _pairingId, 
       motherId: _selectedMother?.id, 
-      fatherId: _groupFathers.isNotEmpty ? _groupFathers.first.id : null, // 兼容旧字段
+      fatherId: _groupFathers.isNotEmpty ? _groupFathers.first.id : null,
       fatherNameSnapshot: fatherName, motherNameSnapshot: motherName, afterSalesPlan: _afterSalesCtrl.text, isAfterSales: _isAfterSales,
     );
     if (e.id == null) { await db.insert('eggs', e.toMap()); } else { await db.update('eggs', e.toMap(), where: 'id=?', whereArgs: [e.id]); }
@@ -548,7 +560,6 @@ class _EggEditPageState extends State<EggEditPage> {
 
         const SizedBox(height: 16),
         
-        // 展示父母本卡片
         InkWell(
           onTap: (isReadOnly || _isParentLocked) ? null : _showPairingSelectionDialog,
           child: Container(
