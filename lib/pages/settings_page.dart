@@ -85,12 +85,25 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  // 封装一个统一的“导出成功”弹窗
+  // 优化后的导出成功弹窗
   void _showExportSuccessDialog(String path) {
     showDialog(
       context: context,
+      barrierDismissible: false, // 核心修改：点击背景外部不会关闭弹窗
       builder: (c) => AlertDialog(
-        title: const Text('导出成功！'),
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('导出成功！'),
+            IconButton(
+              icon: const Icon(Icons.close, color: Colors.grey),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(), // 让图标更紧凑
+              onPressed: () => Navigator.pop(c),
+              tooltip: '关闭',
+            ),
+          ],
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -226,7 +239,7 @@ class _SettingsPageState extends State<SettingsPage> {
           onPressed: () async { 
             final path = await AppDatabase.instance.exportBackup(); 
             if (path != null && context.mounted) {
-              _showExportSuccessDialog(path); // 显示带路径的弹窗
+              _showExportSuccessDialog(path); 
             }
           }, 
           icon: const Icon(Icons.download), label: const Text('导出全量备份 (包含所有数据)')
@@ -254,7 +267,7 @@ class _SettingsPageState extends State<SettingsPage> {
           onPressed: () async { 
             final path = await AppDatabase.instance.exportArticlesOnly(); 
             if (path != null && context.mounted) {
-              _showExportSuccessDialog(path); // 显示带路径的弹窗
+              _showExportSuccessDialog(path); 
             }
           }, 
           icon: const Icon(Icons.text_snippet), label: const Text('仅导出教学与日志')
