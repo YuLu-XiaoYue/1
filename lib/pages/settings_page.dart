@@ -72,7 +72,17 @@ class _SettingsPageState extends State<SettingsPage> {
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('背景色', style: TextStyle(color: Colors.grey)), const SizedBox(height: 8), _buildColorButton(_bgColor, '点击选择', () => _pickColor(false))])),
         ]),
         const SizedBox(height: 24),
-        ListTile(leading: const Icon(Icons.price_change), title: const Text('蛋重价格规则'), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PriceRulesPage()))),
+        
+        // 修复：拆分成了标准写法
+        ListTile(
+          leading: const Icon(Icons.price_change),
+          title: const Text('蛋重价格规则'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const PriceRulesPage()));
+          },
+        ),
+        
         const Divider(),
         const SizedBox(height: 20),
         const Text('数据管理 (全量)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
