@@ -5,38 +5,64 @@ import '../db/database.dart';
 import 'price_rules_page.dart';
 
 class SettingsPage extends StatefulWidget {
-  const SettingsPage({super.key});
+  final Color currentThemeColor;
+  final Color currentBgColor;
+  final Color? currentDrawerColor;
+  final Function(Color) onThemeColorChanged;
+  final Function(Color) onBgColorChanged;
+  final Function(Color?) onDrawerColorChanged;
+
+  const SettingsPage({
+    super.key,
+    required this.currentThemeColor,
+    required this.currentBgColor,
+    required this.currentDrawerColor,
+    required this.onThemeColorChanged,
+    required this.onBgColorChanged,
+    required this.onDrawerColorChanged,
+  });
+
   @override
   State<SettingsPage> createState() => _SettingsPageState();
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  Color _themeColor = Colors.teal;
-  Color _bgColor = const Color(0xFFF5F5F5);
-
-  @override
-  void initState() { super.initState(); _load(); }
-
-  Future<void> _load() async {
+  
+  void _updateColor(Color color, String type) async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _themeColor = Color(prefs.getInt('theme_color') ?? Colors.teal.value);
-      _bgColor = Color(prefs.getInt('bg_color') ?? 0xFFF5F5F5);
-    });
+    if (type == 'theme') {
+      widget.onThemeColorChanged(color);
+      await prefs.setInt('theme_color', color.value);
+    } else if (type == 'bg') {
+      widget.onBgColorChanged(color);
+      await prefs.setInt('bg_color', color.value);
+    } else if (type == 'drawer') {
+      widget.onDrawerColorChanged(color);
+      await prefs.setInt('drawer_color', color.value);
+    } else if (type == 'drawer_reset') {
+      widget.onDrawerColorChanged(null);
+      await prefs.remove('drawer_color');
+    }
   }
 
-  void _updateColor(Color color, bool isTheme) {
-    setState(() { if (isTheme) { _themeColor = color; } else { _bgColor = color; } });
-    SharedPreferences.getInstance().then((p) => p.setInt(isTheme ? 'theme_color' : 'bg_color', color.value));
-  }
-
-  void _pickColor(bool isTheme) async {
-    Color picked = isTheme ? _themeColor : _bgColor;
+  void _pickColor(Color initialColor, String title, Function(Color) onColorChanged) async {
+    Color picked = initialColor;
     await showDialog(
       context: context,
       builder: (c) => AlertDialog(
-        title: Text(isTheme ? '选择主题色' : '选择背景色'),
-        content: SingleChildScrollView(child: ColorPicker(pickerColor: picked, onColorChanged: (color) { picked = color; _updateColor(color, isTheme); }, enableAlpha: false, displayThumbColor: true, paletteType: PaletteType.hsvWithHue)),
+        title: Text('选择$title'),
+        content: SingleChildScrollView(
+          child: ColorPicker(
+            pickerColor: initialColor, 
+            onColorChanged: (color) {
+              picked = color;
+              onColorChanged(color); // 实时更新到界面
+            }, 
+            enableAlpha: false, 
+            displayThumbColor: true, 
+            paletteType: PaletteType.hsvWithHue
+          )
+        ),
         actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('确定'))],
       ),
     );
@@ -61,24 +87,63 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDrawerFollowing = widget.currentDrawerColor == null;
+    final drawerDisplayColor = widget.currentDrawerColor ?? widget.currentThemeColor;
+
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
         const Text('颜色设置', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 16),
         Row(children: [
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('主题色 (按钮/顶栏)', style: TextStyle(color: Colors.grey)), const SizedBox(height: 8), _buildColorButton(_themeColor, '点击选择', () => _pickColor(true))])),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('主题色 (按钮/文字)', style: TextStyle(color: Colors.grey)), 
+            const SizedBox(height: 8), 
+            _buildColorButton(widget.currentThemeColor, '点击选择', () {
+              _pickColor(widget.currentThemeColor, '主题色', (c) => _updateColor(c, 'theme'));
+            })
+          ])),
           const SizedBox(width: 16),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('背景色', style: TextStyle(color: Colors.grey)), const SizedBox(height: 8), _buildColorButton(_bgColor, '点击选择', () => _pickColor(false))])),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('背景色', style: TextStyle(color: Colors.grey)), 
+            const SizedBox(height: 8), 
+            _buildColorButton(widget.currentBgColor, '点击选择', () {
+              _pickColor(widget.currentBgColor, '背景色', (c) => _updateColor(c, 'bg'));
+            })
+          ])),
         ]),
-        const SizedBox(height: 24),
         
+        const SizedBox(height: 24),
+        const Text('侧边栏设置', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 16),
+        Row(children: [
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(isDrawerFollowing ? '侧边栏颜色 (跟随主题)' : '侧边栏颜色 (独立)', style: const TextStyle(color: Colors.grey)), 
+            const SizedBox(height: 8), 
+            _buildColorButton(drawerDisplayColor, '点击选择', () {
+              _pickColor(drawerDisplayColor, '侧边栏颜色', (c) => _updateColor(c, 'drawer'));
+            })
+          ])),
+          const SizedBox(width: 16),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('重置', style: TextStyle(color: Colors.grey)), 
+            const SizedBox(height: 8), 
+            SizedBox(
+              height: 60,
+              child: OutlinedButton(
+                onPressed: isDrawerFollowing ? null : () => _updateColor(Colors.transparent, 'drawer_reset'),
+                child: const Text('恢复跟随主题'),
+              ),
+            )
+          ])),
+        ]),
+
+        const SizedBox(height: 32),
         ListTile(
           leading: const Icon(Icons.price_change),
           title: const Text('蛋重价格规则'),
           trailing: const Icon(Icons.chevron_right),
           onTap: () {
-            // 修复：去掉了这里的 const
             Navigator.push(context, MaterialPageRoute(builder: (_) => PriceRulesPage()));
           },
         ),
