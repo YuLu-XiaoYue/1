@@ -22,10 +22,10 @@ class EggListPage extends StatefulWidget {
   final String viewType;
   const EggListPage({super.key, required this.viewType});
   @override
-  State<EggListPage> createState() => _EggListPageState();
+  State<EggListPage> createState() => EggListPageState(); // 改为了公开的 State
 }
 
-class _EggListPageState extends State<EggListPage> {
+class EggListPageState extends State<EggListPage> {
   List<Egg> _eggs = [];
   List<String> _categories = ['全部'];
   String _currentCategory = '全部';
@@ -41,6 +41,11 @@ class _EggListPageState extends State<EggListPage> {
 
   @override
   void initState() { super.initState(); _loadCategories(); _load(); }
+
+  // 暴露给外部的刷新方法
+  Future<void> loadData() async {
+    await _load();
+  }
 
   Future<void> _loadCategories() async {
     final db = await AppDatabase.instance.db;
