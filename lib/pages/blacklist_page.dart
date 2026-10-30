@@ -59,12 +59,10 @@ class _BlacklistPageState extends State<BlacklistPage> {
 
   @override
   Widget build(BuildContext context) {
-    // 1. 搜索过滤
     var visible = _list.where((b) {
       return _searchQuery.isEmpty || b.buyerName.contains(_searchQuery) || (b.platformId).contains(_searchQuery) || (b.gameId).contains(_searchQuery);
     }).toList();
 
-    // 2. 拼音首字母分组
     Map<String, List<Blacklist>> groupedList = {};
     for (var b in visible) {
       String buyer = b.buyerName;
@@ -78,13 +76,11 @@ class _BlacklistPageState extends State<BlacklistPage> {
     }
     List<String> alphabet = groupedList.keys.toList()..sort();
 
-    // 用于定位滚动
     final Map<String, GlobalKey> sectionKeys = { for (var letter in alphabet) letter: GlobalKey() };
 
     return Scaffold(
       body: Column(
         children: [
-          // 顶部搜索框
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: TextField(
@@ -100,7 +96,7 @@ class _BlacklistPageState extends State<BlacklistPage> {
                   children: [
                     ListView.builder(
                       controller: _scrollController,
-                      padding: const EdgeInsets.only(right: 30, bottom: 80),
+                      padding: const EdgeInsets.only(right: 30, bottom: 100),
                       itemCount: alphabet.length,
                       itemBuilder: (context, index) {
                         final letter = alphabet[index];
@@ -117,6 +113,7 @@ class _BlacklistPageState extends State<BlacklistPage> {
                               onSecondaryTap: () => _deleteItem(b.id!),
                               child: Slidable(
                                 key: ValueKey(b.id),
+                                extentRatio: 0.25, // 控制滑开比例
                                 endActionPane: ActionPane(motion: const ScrollMotion(), children: [
                                   SlidableAction(onPressed: (_) => _deleteItem(b.id!), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')
                                 ]),
@@ -131,8 +128,6 @@ class _BlacklistPageState extends State<BlacklistPage> {
                         );
                       },
                     ),
-                    
-                    // 右侧字母索引条
                     Positioned(
                       right: 0, top: 0, bottom: 0,
                       child: Center(
@@ -143,11 +138,8 @@ class _BlacklistPageState extends State<BlacklistPage> {
                             mainAxisSize: MainAxisSize.min,
                             children: alphabet.map((l) => GestureDetector(
                               onTap: () {
-                                // 利用 GlobalKey 精确跳转到对应字母
                                 final ctx = sectionKeys[l]?.currentContext;
-                                if (ctx != null) {
-                                  Scrollable.ensureVisible(ctx, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
-                                }
+                                if (ctx != null) { Scrollable.ensureVisible(ctx, duration: const Duration(milliseconds: 300), curve: Curves.easeOut); }
                               },
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), 
@@ -163,7 +155,11 @@ class _BlacklistPageState extends State<BlacklistPage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(onPressed: _showAddDialog, child: const Icon(Icons.add)),
+      // 调整悬浮按钮的位置
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 24, right: 8),
+        child: FloatingActionButton(onPressed: _showAddDialog, child: const Icon(Icons.add)),
+      ),
     );
   }
 }
