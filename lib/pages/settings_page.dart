@@ -25,17 +25,8 @@ class _SettingsPageState extends State<SettingsPage> {
     });
   }
 
-  // 实时更新颜色并保存
   void _updateColor(Color color, bool isTheme) {
-    setState(() {
-      if (isTheme) {
-        _themeColor = color;
-      } else {
-        _bgColor = color;
-      }
-    });
-    // 这里我们通过全局状态通知机制（这里用简单的内置回调模拟）
-    // 实际上它会触发整个 MaterialApp 重建
+    setState(() { if (isTheme) { _themeColor = color; } else { _bgColor = color; } });
     SharedPreferences.getInstance().then((p) => p.setInt(isTheme ? 'theme_color' : 'bg_color', color.value));
   }
 
@@ -45,32 +36,12 @@ class _SettingsPageState extends State<SettingsPage> {
       context: context,
       builder: (c) => AlertDialog(
         title: Text(isTheme ? '选择主题色' : '选择背景色'),
-        content: SingleChildScrollView(
-          child: ColorPicker(
-            pickerColor: picked, 
-            onColorChanged: (color) {
-              picked = color;
-              _updateColor(color, isTheme); // 实时预览
-            }, 
-            enableAlpha: false, 
-            displayThumbColor: true, 
-            paletteType: PaletteType.hsvWithHue
-          )
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(c);
-              // 提示重启或通过顶层状态刷新（由于咱们结构里State是局部的，这里其实已经实时改了）
-            }, 
-            child: const Text('确定')
-          ),
-        ],
+        content: SingleChildScrollView(child: ColorPicker(pickerColor: picked, onColorChanged: (color) { picked = color; _updateColor(color, isTheme); }, enableAlpha: false, displayThumbColor: true, paletteType: PaletteType.hsvWithHue)),
+        actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('确定'))],
       ),
     );
   }
 
-  // 图1风格的按钮组件
   Widget _buildColorButton(Color color, String label, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
@@ -80,13 +51,7 @@ class _SettingsPageState extends State<SettingsPage> {
         decoration: BoxDecoration(
           color: color,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: color.withOpacity(0.4),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            )
-          ],
+          boxShadow: [BoxShadow(color: color.withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 4))],
         ),
         alignment: Alignment.center,
         child: Text(label, style: TextStyle(color: color.computeLuminance() > 0.5 ? Colors.black : Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
@@ -102,56 +67,55 @@ class _SettingsPageState extends State<SettingsPage> {
         const Text('颜色设置', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 16),
         Row(children: [
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('主题色 (按钮/顶栏)', style: TextStyle(color: Colors.grey)),
-            const SizedBox(height: 8),
-            // 使用图1风格的按钮
-            _buildColorButton(_themeColor, '点击选择', () => _pickColor(true)),
-          ])),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('主题色 (按钮/顶栏)', style: TextStyle(color: Colors.grey)), const SizedBox(height: 8), _buildColorButton(_themeColor, '点击选择', () => _pickColor(true))])),
           const SizedBox(width: 16),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('背景色', style: TextStyle(color: Colors.grey)),
-            const SizedBox(height: 8),
-            _buildColorButton(_bgColor, '点击选择', () => _pickColor(false)),
-          ])),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('背景色', style: TextStyle(color: Colors.grey)), const SizedBox(height: 8), _buildColorButton(_bgColor, '点击选择', () => _pickColor(false))])),
         ]),
         const SizedBox(height: 24),
         ListTile(leading: const Icon(Icons.price_change), title: const Text('蛋重价格规则'), trailing: const Icon(Icons.chevron_right), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PriceRulesPage()))),
         const Divider(),
         const SizedBox(height: 20),
-        const Text('数据管理', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const Text('数据管理 (全量)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 16),
-        // 图5的按钮风格保持不变
         ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-            foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant
-          ),
-          onPressed: () async { final path = await AppDatabase.instance.exportBackup(); if (path != null && context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('备份成功！'))); }, 
-          icon: const Icon(Icons.download), 
-          label: const Text('导出备份 (保存为JSON)')
+          style: ElevatedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), padding: const EdgeInsets.symmetric(vertical: 12), backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest, foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant),
+          onPressed: () async { final path = await AppDatabase.instance.exportBackup(); if (path != null && context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('全量备份成功！'))); }, 
+          icon: const Icon(Icons.download), label: const Text('导出全量备份 (包含所有数据)')
         ),
         const SizedBox(height: 12),
         ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            backgroundColor: Colors.red.shade50, 
-            foregroundColor: Colors.red
-          ),
+          style: ElevatedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), padding: const EdgeInsets.symmetric(vertical: 12), backgroundColor: Colors.red.shade50, foregroundColor: Colors.red),
           onPressed: () async {
-            final confirm = await showDialog<bool>(context: context, builder: (c) => AlertDialog(
-              title: const Text('危险操作'), content: const Text('导入备份会覆盖当前所有的数据，确定继续吗？'),
-              actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('取消')), TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('确定覆盖'))],
-            ));
+            final confirm = await showDialog<bool>(context: context, builder: (c) => AlertDialog(title: const Text('危险操作'), content: const Text('导入全量备份会覆盖当前所有的数据，确定继续吗？'), actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('取消')), TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('确定覆盖'))]));
             if (confirm == true) {
               final success = await AppDatabase.instance.importBackup();
-              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(success ? '恢复成功！请重启APP查看' : '恢复失败或取消')));
+              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(success ? '全量恢复成功！请重启APP查看' : '恢复失败')));
             }
           },
-          icon: const Icon(Icons.upload), label: const Text('导入恢复 (覆盖当前数据)'),
+          icon: const Icon(Icons.upload), label: const Text('导入全量恢复 (覆盖所有数据)'),
+        ),
+        
+        const SizedBox(height: 32),
+        const Text('内容分发 (仅文本)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        const Text('只包含新手教学和更新日志，导入不覆盖其他数据', style: TextStyle(fontSize: 12, color: Colors.grey)),
+        const SizedBox(height: 16),
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), padding: const EdgeInsets.symmetric(vertical: 12), backgroundColor: Colors.blue.shade50, foregroundColor: Colors.blue.shade700),
+          onPressed: () async { final path = await AppDatabase.instance.exportArticlesOnly(); if (path != null && context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('文本备份成功！'))); }, 
+          icon: const Icon(Icons.text_snippet), label: const Text('仅导出教学与日志')
+        ),
+        const SizedBox(height: 12),
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), padding: const EdgeInsets.symmetric(vertical: 12), backgroundColor: Colors.green.shade50, foregroundColor: Colors.green.shade700),
+          onPressed: () async {
+            final confirm = await showDialog<bool>(context: context, builder: (c) => AlertDialog(title: const Text('导入文本'), content: const Text('导入后将覆盖你的新手教学和更新日志，但不会影响精灵蛋数据。确定继续吗？'), actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('取消')), TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('确定'))]));
+            if (confirm == true) {
+              final success = await AppDatabase.instance.importArticlesOnly();
+              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(success ? '文本导入成功！' : '导入失败')));
+            }
+          },
+          icon: const Icon(Icons.text_snippet_outlined), label: const Text('仅导入教学与日志')
         ),
       ],
     );
