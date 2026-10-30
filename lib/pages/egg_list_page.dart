@@ -89,7 +89,6 @@ class EggListPageState extends State<EggListPage> {
     if (confirm == true) { final db = await AppDatabase.instance.db; await db.delete('eggs', where: 'id = ?', whereArgs: [id]); _load(); }
   }
 
-  // --- 新增：弹出的筛选窗口 ---
   void _showFilterDialog() {
     Set<String> tempTags = Set.from(_filterTags);
     bool tempMatchAll = _filterMatchAll;
@@ -139,7 +138,6 @@ class EggListPageState extends State<EggListPage> {
                     ),
                     const Divider(),
                     
-                    // 绿窝选项
                     CheckboxListTile(
                       value: tempTags.contains('绿窝'),
                       title: Row(children: [
@@ -152,7 +150,6 @@ class EggListPageState extends State<EggListPage> {
                     ),
                     const Divider(),
                     
-                    // 奖牌选项
                     ...sizeMedals.map((m) => CheckboxListTile(
                       value: tempTags.contains(m),
                       title: Row(children: [
@@ -195,7 +192,6 @@ class EggListPageState extends State<EggListPage> {
       ),
     );
   }
-  // ----------------------------
 
   Widget _buildEggIconWithBadges(Egg e) {
     return Stack(
@@ -304,10 +300,9 @@ class EggListPageState extends State<EggListPage> {
                 Expanded(child: TextField(onChanged: (v) => setState(() => _searchQuery = v), decoration: const InputDecoration(hintText: '搜索名字/买家', prefixIcon: Icon(Icons.search), isDense: true, border: OutlineInputBorder()))),
                 const SizedBox(width: 8),
                 
-                // 新的筛选按钮（用普通 IconButton 触发 Dialog）
                 IconButton(
                   tooltip: '筛选与过滤',
-                  icon: Icon(Icons.filter_alt, color: _filterTags.isNotEmpty ? Theme.of(context).colorScheme.primary : null), // 有选中条件时图标变色
+                  icon: Icon(Icons.filter_alt, color: _filterTags.isNotEmpty ? Theme.of(context).colorScheme.primary : null),
                   onPressed: _showFilterDialog,
                 ),
                 
@@ -669,7 +664,17 @@ class _EggEditPageState extends State<EggEditPage> {
   }
 
   Future<void> _save() async {
-    if (_nameCtrl.text.isEmpty) return;
+    // === 新增：名字为空提示 ===
+    if (_nameCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请填写蛋名！')));
+      return;
+    }
+    // === 新增：重量为空提示（可选，防呆） ===
+    if (_weightCtrl.text.trim().isEmpty || double.tryParse(_weightCtrl.text) == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请填写正确的重量！')));
+      return;
+    }
+
     final db = await AppDatabase.instance.db;
     String? finalPath = _iconPath;
     if (finalPath == null) {
