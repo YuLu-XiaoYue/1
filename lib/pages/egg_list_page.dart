@@ -5,7 +5,7 @@ import 'package:lpinyin/lpinyin.dart';
 import '../db/database.dart';
 import '../models/models.dart';
 
-// --- 新增：中文名称到英文文件名的映射字典 ---
+// 中文名称到英文文件名的映射字典
 const Map<String, String> medalIconMap = {
   '大块头': 'big_body',
   '满重': 'full_weight',
@@ -18,7 +18,6 @@ const Map<String, String> medalIconMap = {
 };
 
 Widget _buildMedalChip(String medal) {
-  // 优先从字典里找英文名，找不到就用原名（防止报错）
   final fileName = medalIconMap[medal] ?? medal;
   return Row(mainAxisSize: MainAxisSize.min, children: [
     Image.asset(
@@ -337,8 +336,26 @@ class _EggEditPageState extends State<EggEditPage> {
   Future<void> _autoFillPrice(String weightStr) async {
     final weight = double.tryParse(weightStr);
     if (weight == null) { setState(() => _isOutOfRange = false); return; }
+    
     final db = await AppDatabase.instance.db;
-    final rules = await db.query('price_rules');
+    // 1. 根据蛋名匹配分类
+    final catRows = await db.query('egg_categories');
+    String matchedCategory = '';
+    for (var row in catRows) {
+      String catName = row['name'] as String;
+      if (_nameCtrl.text.contains(catName)) {
+        matchedCategory = catName;
+        break;
+      }
+    }
+
+    if (matchedCategory.isEmpty) {
+      setState(() => _isOutOfRange = true);
+      return;
+    }
+
+    // 2. 根据分类和重量查规则
+    final rules = await db.query('price_rules', where: 'category = ?', whereArgs: [matchedCategory]);
     for (var r in rules) {
       if (weight >= (r['min_weight'] as double) && weight <= (r['max_weight'] as double)) {
         setState(() { _priceCtrl.text = (r['price'] as double).toStringAsFixed(0); _isOutOfRange = false; }); return;
@@ -394,7 +411,13 @@ class _EggEditPageState extends State<EggEditPage> {
           ElevatedButton.icon(onPressed: () async { final res = await FilePicker.platform.pickFiles(type: FileType.image); if (res != null && res.files.single.path != null) { final saved = await copyImageToLocal(res.files.single.path!, 'egg_icons'); setState(() => _iconPath = saved); } }, icon: const Icon(Icons.image), label: const Text('选图')),
         ]),
         const SizedBox(height: 16),
-        TextField(controller: _nameCtrl, enabled: !isReadOnly, decoration: const InputDecoration(labelText: '蛋名')),
+        TextField(
+          controller: _nameCtrl, 
+          enabled: !isReadOnly, 
+          decoration: const InputDecoration(labelText: '蛋名 (包含分类名可自动匹配价格)'),
+          // 监听蛋名改变，重新匹配价格
+          onChanged: (v) => _autoFillPrice(_weightCtrl.text),
+        ),
         
         const SizedBox(height: 16),
         Row(children: [
@@ -425,7 +448,7 @@ class _EggEditPageState extends State<EggEditPage> {
             )
           ),
           const SizedBox(width: 16),
-          Expanded(child: TextField(controller: _weightCtrl, enabled: !isReadOnly, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: '重量(kg)', errorText: _isOutOfRange ? '此蛋重不在设置范围内！' : null), onChanged: _autoFillPrice)),
+          Expanded(child: TextField(controller: _weightCtrl, enabled: !isReadOnly, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: '重量(kg)', errorText: _isOutOfRange ? '此重量不在该分类的设置范围内！' : null), onChanged: _autoFillPrice)),
         ]),
 
         const SizedBox(height: 16),
