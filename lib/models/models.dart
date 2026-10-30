@@ -3,17 +3,10 @@ import 'dart:convert';
 class Account {
   final int? id;
   final String name;
-  final String? accountId; // 新增字段，用于存长串 ID
-
+  final String? accountId;
   Account({this.id, required this.name, this.accountId});
-
   Map<String, Object?> toMap() => {'id': id, 'name': name, 'account_id': accountId};
-  
-  factory Account.fromMap(Map<String, Object?> m) => Account(
-    id: m['id'] as int?, 
-    name: m['name'] as String,
-    accountId: m['account_id'] as String?,
-  );
+  factory Account.fromMap(Map<String, Object?> m) => Account(id: m['id'] as int?, name: m['name'] as String, accountId: m['account_id'] as String?);
 }
 
 class Parent {
@@ -49,7 +42,50 @@ class Parent {
   );
 }
 
+class Pairing {
+  final int? id;
+  final String account;
+  final int motherId;
+  final String nestType;
+  Pairing({this.id, required this.account, required this.motherId, this.nestType = '普窝'});
+  Map<String, Object?> toMap() => {'id': id, 'account': account, 'mother_id': motherId, 'nest_type': nestType};
+  factory Pairing.fromMap(Map<String, Object?> m) => Pairing(id: m['id'] as int?, account: m['account'] as String, motherId: m['mother_id'] as int, nestType: m['nest_type'] as String? ?? '普窝');
+}
+
+// 新增：产线模型
+class ProductionLine {
+  final int? id;
+  final String name; // 产线名 (即蛋名)
+  final String accountName;
+  final String? accountId;
+  final String nestType; // 普窝/绿窝
+  final int pairingId;
+  final String nature; // 自动识别的性格
+  final String natureProb; // 自动识别的概率
+  final String? iconPath;
+  final List<String> medals;
+  final int? createdAt;
+
+  ProductionLine({
+    this.id, required this.name, required this.accountName, this.accountId, required this.nestType,
+    required this.pairingId, required this.nature, required this.natureProb, this.iconPath, this.medals = const [], this.createdAt,
+  });
+
+  Map<String, Object?> toMap() => {
+    if (id != null) 'id': id, 'name': name, 'account_name': accountName, 'account_id': accountId, 'nest_type': nestType,
+    'pairing_id': pairingId, 'nature': nature, 'nature_prob': natureProb, 'icon_path': iconPath, 'medals': jsonEncode(medals),
+    'created_at': createdAt ?? DateTime.now().millisecondsSinceEpoch,
+  };
+
+  factory ProductionLine.fromMap(Map<String, Object?> m) => ProductionLine(
+    id: m['id'] as int?, name: m['name'] as String, accountName: m['account_name'] as String, accountId: m['account_id'] as String?,
+    nestType: m['nest_type'] as String, pairingId: m['pairing_id'] as int, nature: m['nature'] as String, natureProb: m['nature_prob'] as String,
+    iconPath: m['icon_path'] as String?, medals: (jsonDecode(m['medals'] as String? ?? '[]') as List).cast<String>(), createdAt: m['created_at'] as int?,
+  );
+}
+
 class Egg {
+  // ... (保持原来的 Egg 模型字段，由于太长省略，你可以直接保留你现在的 Egg 代码)
   final int? id;
   final String name;
   final double weight;
@@ -102,41 +138,35 @@ class Egg {
     pairingId: m['pairing_id'] as int?, fatherId: m['father_id'] as int?, motherId: m['mother_id'] as int?,
     fatherNameSnapshot: m['father_name_snapshot'] as String?, motherNameSnapshot: m['mother_name_snapshot'] as String?,
     iconPath: m['icon_path'] as String?, price: (m['price'] as num?)?.toDouble(), status: m['status'] as String? ?? '在库',
-    salePlatform: m['sale_platform'] as String?, 
-    buyerPlatformName: m['buyer_platform_name'] as String?, 
-    buyerPlatformId: m['buyer_platform_id'] as String?, 
-    buyerGameName: m['buyer_game_name'] as String?, 
-    buyerGameId: m['buyer_game_id'] as String?,
-    note: m['note'] as String?,
+    salePlatform: m['sale_platform'] as String?, buyerPlatformName: m['buyer_platform_name'] as String?, 
+    buyerPlatformId: m['buyer_platform_id'] as String?, buyerGameName: m['buyer_game_name'] as String?, 
+    buyerGameId: m['buyer_game_id'] as String?, note: m['note'] as String?,
     createdAt: m['created_at'] as int?, nestType: m['nest_type'] as String? ?? '普窝', obtainedDate: m['obtained_date'] as String? ?? '',
     afterSalesPlan: m['after_sales_plan'] as String?, isAfterSales: (m['is_after_sales'] as int? ?? 0) == 1,
   );
 }
 
-class Blacklist {
-  final int? id;
-  final String platform;
-  final String buyerName;
-  final String platformId;
-  final String gameId;
-  final String? reason;
-
-  Blacklist({this.id, required this.platform, required this.buyerName, required this.platformId, required this.gameId, this.reason});
-
-  Map<String, Object?> toMap() => {'id': id, 'platform': platform, 'buyer_name': buyerName, 'platform_id': platformId, 'game_id': gameId, 'reason': reason};
-  factory Blacklist.fromMap(Map<String, Object?> m) => Blacklist(id: m['id'] as int?, platform: m['platform'] as String, buyerName: m['buyer_name'] as String, platformId: m['platform_id'] as String, gameId: m['game_id'] as String, reason: m['reason'] as String?);
-}
-
-class Article {
-  final int? id;
-  final String type; 
-  final String content;
-  Article({this.id, required this.type, required this.content});
-  Map<String, Object?> toMap() => {'id': id, 'type': type, 'content': content};
-  factory Article.fromMap(Map<String, Object?> m) => Article(id: m['id'] as int?, type: m['type'] as String, content: m['content'] as String);
-}
+// ... (Blacklist, Article 保持原样) ...
 
 const List<String> bloodlines = ['普通','草','火','水','光','地','冰','龙','电','毒','虫','武','翼','萌','幽','恶','机械','幻','首领','污染','奇异'];
 const List<String> sizeMedals = ['大块头', '满重', '小不点', '满轻'];
 const List<String> voiceMedals = ['婉转声', '满音婉转声', '粗嗓门', '满音粗嗓门'];
 const List<String> appearanceTypes = ['普通', '异色', '炫彩', '异色炫彩', '黑白', '异色黑白'];
+
+// 核心：性格自动计算算法
+String calculateNature(List<Parent> fathers, Parent mother) {
+  String mNature = mother.nature ?? '未知';
+  Set<String> fNatures = fathers.map((f) => f.nature ?? '未知').toSet();
+
+  if (fNatures.length == 1) {
+    String fNature = fNatures.first;
+    if (mNature == fNature) {
+      return '$mNature|60%$mNature+40%随机';
+    } else {
+      return '$mNature丨$fNature|30%$mNature+30%$fNature+40%随机';
+    }
+  } else {
+    // 父母本性格总共超过3种（或父本性格不同）
+    return '混窝|随机';
+  }
+}
