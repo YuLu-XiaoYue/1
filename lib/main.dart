@@ -83,7 +83,6 @@ class _MainLayoutState extends State<MainLayout> {
   int _index = 0;
   final List<String> _titles = ['精灵蛋', '已售出', '售后订单', '黑名单', '配对库', '父母本库', '新手教学', '更新日志', '设置'];
 
-  // 所有的 Key
   final GlobalKey<EggListPageState> _eggKey0 = GlobalKey();
   final GlobalKey<EggListPageState> _eggKey1 = GlobalKey();
   final GlobalKey<EggListPageState> _eggKey2 = GlobalKey();
@@ -99,8 +98,9 @@ class _MainLayoutState extends State<MainLayout> {
         child: Drawer(
           child: Column(
             children: [
+              // 强制使用选中的主题色，不使用系统自动调配的颜色
               DrawerHeader(
-                decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary),
+                decoration: BoxDecoration(color: widget.currentThemeColor),
                 child: const Align(alignment: Alignment.bottomLeft, child: Text('精灵蛋仓库', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold))),
               ),
               Expanded(
@@ -147,8 +147,6 @@ class _MainLayoutState extends State<MainLayout> {
       onTap: () { 
         setState(() => _index = index); 
         Navigator.pop(context); 
-        
-        // 切换页面时，强制刷新对应的数据（解决账号同步问题）
         if (index == 0) _eggKey0.currentState?.loadData();
         if (index == 1) _eggKey1.currentState?.loadData();
         if (index == 2) _eggKey2.currentState?.loadData();
