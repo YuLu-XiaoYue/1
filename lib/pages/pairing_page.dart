@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import '../db/database.dart';
 import '../models/models.dart';
-import 'parent_page.dart'; // 引入卡片组件
+import 'parent_page.dart';
 
 class PairingPage extends StatefulWidget {
   const PairingPage({super.key});
@@ -18,7 +18,6 @@ class PairingPageState extends State<PairingPage> {
   @override
   void initState() { super.initState(); _loadAccounts(); }
 
-  // 暴露刷新方法，供主框架调用
   Future<void> loadData() async {
     await _loadAccounts();
   }
@@ -43,7 +42,14 @@ class PairingPageState extends State<PairingPage> {
       final motherRows = await db.query('parents', where: 'id=?', whereArgs: [p['mother_id']]);
       if (motherRows.isEmpty) continue;
       final fatherRows = await db.rawQuery('SELECT p.* FROM parents p JOIN pairing_fathers pf ON p.id = pf.father_id WHERE pf.pairing_id = ?', [p['id']]);
-      final eggStats = await db.rawQuery('SELECT status, count(*) as c FROM eggs WHERE father_id IN (SELECT father_id FROM pairing_fathers WHERE pairing_id = ?) AND mother_id = ? GROUP BY status', [p['id'], p['mother_id']]);
+      
+      // 兼容旧数据(按父母ID匹配)和新数据(按pairing_id匹配)
+      final eggStats = await db.rawQuery('''
+        SELECT status, count(*) as c FROM eggs 
+        WHERE pairing_id = ? OR (pairing_id IS NULL AND mother_id = ? AND father_id IN (SELECT father_id FROM pairing_fathers WHERE pairing_id = ?)) 
+        GROUP BY status
+      ''', [p['id'], p['mother_id'], p['id']]);
+      
       int inStock = 0, sold = 0;
       for (var stat in eggStats) { if (stat['status'] == '在库') inStock = stat['c'] as int; if (stat['status'] == '已售出') sold = stat['c'] as int; }
       loaded.add({'id': p['id'], 'mother': Parent.fromMap(motherRows.first), 'fathers': fatherRows.map(Parent.fromMap).toList(), 'inStock': inStock, 'sold': sold});
@@ -139,55 +145,36 @@ class _PairingEditPageState extends State<PairingEditPage> {
       body: ListView(padding: const EdgeInsets.all(16), children: [
         const Text('选择母本', style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
-        // 横向滑动的卡片列表
         SizedBox(
           height: 160,
-          child: _mothers.isEmpty 
-            ? const Center(child: Text('暂无母本'))
-            : ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: _mothers.length,
-                itemBuilder: (context, i) {
-                  final m = _mothers[i];
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: SizedBox(
-                      width: 200,
-                      child: buildParentCard(m, true, isSelected: _motherId == m.id, onTap: () => setState(() => _motherId = m.id)),
-                    ),
-                  );
-                },
-              ),
+          child: _mothers.isEmpty ? const Center(child: Text('暂无母本')) : ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: _mothers.length,
+            itemBuilder: (context, i) {
+              final m = _mothers[i];
+              return Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: SizedBox(width: 200, child: buildParentCard(m, true, isSelected: _motherId == m.id, onTap: () => setState(() => _motherId = m.id))),
+              );
+            },
+          ),
         ),
         const SizedBox(height: 24),
         const Text('选择父本(可多选)', style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         SizedBox(
           height: 160,
-          child: _fathers.isEmpty 
-            ? const Center(child: Text('暂无父本'))
-            : ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: _fathers.length,
-                itemBuilder: (context, i) {
-                  final f = _fathers[i];
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: SizedBox(
-                      width: 200,
-                      child: buildParentCard(
-                        f, false, 
-                        isSelected: _fatherIds.contains(f.id), 
-                        onTap: () {
-                          setState(() {
-                            if (_fatherIds.contains(f.id)) { _fatherIds.remove(f.id); } else { _fatherIds.add(f.id!); }
-                          });
-                        },
-                      ),
-                    ),
-                  );
-                },
-              ),
+          child: _fathers.isEmpty ? const Center(child: Text('暂无父本')) : ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: _fathers.length,
+            itemBuilder: (context, i) {
+              final f = _fathers[i];
+              return Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: SizedBox(width: 200, child: buildParentCard(f, false, isSelected: _fatherIds.contains(f.id), onTap: () { setState(() { if (_fatherIds.contains(f.id)) { _fatherIds.remove(f.id); } else { _fatherIds.add(f.id!); } }); })),
+              );
+            },
+          ),
         ),
       ]),
       floatingActionButton: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
