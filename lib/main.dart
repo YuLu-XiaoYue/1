@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:package_info_plus/package_info_plus.dart'; // 引入版本号插件
 import 'db/database.dart';
 import 'pages/egg_list_page.dart';
 import 'pages/pairing_page.dart';
@@ -82,12 +83,29 @@ class MainLayout extends StatefulWidget {
 class _MainLayoutState extends State<MainLayout> {
   int _index = 0;
   final List<String> _titles = ['精灵蛋', '已售出', '售后订单', '黑名单', '配对库', '父母本库', '新手教学', '更新日志', '设置'];
+  String _versionText = '加载中...'; // 动态版本号变量
 
   final GlobalKey<EggListPageState> _eggKey0 = GlobalKey();
   final GlobalKey<EggListPageState> _eggKey1 = GlobalKey();
   final GlobalKey<EggListPageState> _eggKey2 = GlobalKey();
   final GlobalKey<PairingPageState> _pairingKey = GlobalKey();
   final GlobalKey<ParentPageState> _parentKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersion();
+  }
+
+  // 自动读取版本号
+  Future<void> _loadVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    if (mounted) {
+      setState(() {
+        _versionText = 'v${info.version}';
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -98,7 +116,6 @@ class _MainLayoutState extends State<MainLayout> {
         child: Drawer(
           child: Column(
             children: [
-              // 强制使用选中的主题色，不使用系统自动调配的颜色
               DrawerHeader(
                 decoration: BoxDecoration(color: widget.currentThemeColor),
                 child: const Align(alignment: Alignment.bottomLeft, child: Text('精灵蛋仓库', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold))),
@@ -117,7 +134,8 @@ class _MainLayoutState extends State<MainLayout> {
                   _navItem(8, Icons.settings, '设置'),
                 ]),
               ),
-              const Padding(padding: EdgeInsets.all(16), child: Text('当前版本: v1.0.0', style: TextStyle(color: Colors.grey, fontSize: 12))),
+              // 这里使用了动态获取的变量
+              Padding(padding: const EdgeInsets.all(16), child: Text('当前版本: $_versionText', style: const TextStyle(color: Colors.grey, fontSize: 12))),
             ],
           ),
         ),
