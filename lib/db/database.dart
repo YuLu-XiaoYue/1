@@ -9,44 +9,272 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:archive/archive.dart'; // 引入压缩库
 
 String appDocsPath = '';
 
 class AppDatabase {
-  // ... [前面的代码保持不变，一直到 exportToExcel] ...
-  
-  // 为了篇幅，这里省略上面没有改动的代码，你只需把这部分追加在文件最底部，或者直接复制完整的
+  AppDatabase._();
+  static final AppDatabase instance = AppDatabase._();
+  Database? _db;
+
+  Future<Database> get db async => _db ??= await _open();
+
+  Future<Database> _open() async {
+    final dir = await getApplicationDocumentsDirectory();
+    appDocsPath = dir.path;
+    if (Platform.isWindows || Platform.isLinux) {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+    }
+    final path = p.join(dir.path, 'elf_egg_v16.db'); 
+    return databaseFactory.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 1,
+        onCreate: (db, version) async {
+          await db.execute('CREATE TABLE accounts(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, account_id TEXT)');
+          await db.execute('CREATE TABLE parents(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, gender TEXT, account TEXT, nature TEXT, height REAL, weight REAL, voice REAL, bloodline TEXT, icon_path TEXT, created_at INTEGER, appearance TEXT)');
+          await db.execute('CREATE TABLE pairings(id INTEGER PRIMARY KEY AUTOINCREMENT, account TEXT, mother_id INTEGER)');
+          await db.execute('CREATE TABLE pairing_fathers(pairing_id INTEGER, father_id INTEGER, PRIMARY KEY(pairing_id, father_id))');
+          await db.execute('CREATE TABLE eggs(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, weight REAL, medals TEXT, nature TEXT, account TEXT, pairing_id INTEGER, father_id INTEGER, mother_id INTEGER, father_name_snapshot TEXT, mother_name_snapshot TEXT, icon_path TEXT, price REAL, status TEXT, sale_platform TEXT, buyer_platform_name TEXT, buyer_platform_id TEXT, buyer_game_name TEXT, buyer_game_id TEXT, note TEXT, created_at INTEGER, updated_at INTEGER, nest_type TEXT, obtained_date TEXT, after_sales_plan TEXT, is_after_sales INTEGER)');
+          await db.execute('CREATE TABLE price_rules(id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT, min_weight REAL, max_weight REAL, price REAL)');
+          await db.execute('CREATE TABLE blacklist(id INTEGER PRIMARY KEY AUTOINCREMENT, platform TEXT, buyer_name TEXT, platform_id TEXT, game_id TEXT, reason TEXT)');
+          await db.execute('CREATE TABLE egg_categories(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)');
+          await db.execute('CREATE TABLE articles(id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT, content TEXT)');
+          
+          await db.insert('accounts', {'name': '默认账号', 'account_id': ''});
+          
+          String tutorialContent = '欢迎使用精灵蛋仓库！';
+          String logContent = 'v1.0.0\n- 初始版本发布。';
+          try {
+            tutorialContent = await rootBundle.loadString('assets/tutorial.txt');
+            logContent = await rootBundle.loadString('assets/update_log.txt');
+          } catch (e) { debugPrint('未找到默认文本文件'); }
+          
+          await db.insert('articles', {'type': 'tutorial', 'content': tutorialContent});
+          await db.insert('articles', {'type': 'log', 'content': logContent});
+        },
+      ),
+    );
+  }
+
+  // ================= 新增：全量打包（数据 + 图片） =================
+  Future<String?> exportBackup() async {
+    final db = await instance.db;
+    final tables = ['accounts', 'parents', 'pairings', 'pairing_fathers', 'eggs', 'price_rules', 'blacklist', 'egg_categories', 'articles'];
+    Map<String, dynamic> backup = {};
+    for (var t in tables) { backup[t] = await db.query(t); }
+    String jsonStr = jsonEncode(backup);
+
+    // 创建压缩包
+    final archive = Archive();
+    
+    // 1. 把数据库文本放进压缩包
+    final jsonBytes = utf8.encode(jsonStr);
+    archive.addFile(ArchiveFile('data.json', jsonBytes.length, jsonBytes));
+
+    // 2. 把图片文件夹放进压缩包
+    final dirs = ['egg_icons', 'parent_icons'];
+    for (var dirName in dirs) {
+      final dir = Directory(p.join(appDocsPath, dirName));
+      if (await dir.exists()) {
+        await for (var file in dir.list()) {
+          if (file is File) {
+            final bytes = await file.readAsBytes();
+            final fileName = p.basename(file.path);
+            archive.addFile(ArchiveFile('$dirName/$fileName', bytes.length, bytes));
+          }
+        }
+      }
+    }
+
+    // 3. 生成并保存 zip 文件
+    final zipData = ZipEncoder().encode(archive);
+    if (zipData != null) {
+      try {
+        return await FilePicker.platform.saveFile(
+          dialogTitle: '保存全量备份 (.zip)',
+          fileName: 'elf_egg_full_backup.zip',
+          bytes: Uint8List.fromList(zipData),
+        );
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  // ================= 新增：解压并恢复（数据 + 图片） =================
+  Future<bool> importBackup() async {
+    try {
+      final res = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['zip']);
+      if (res == null || res.files.single.path == null) return false;
+      
+      final zipFileBytes = await File(res.files.single.path!).readAsBytes();
+      final archive = ZipDecoder().decodeBytes(zipFileBytes);
+      
+      Map<String, dynamic>? data;
+      
+      // 解压并处理文件
+      for (final file in archive) {
+        if (file.isFile) {
+          // 1. 如果是数据文件，先暂存
+          if (file.name == 'data.json') {
+            final content = utf8.decode(file.content as List<int>);
+            data = jsonDecode(content);
+          } 
+          // 2. 如果是图片，直接写入对应文件夹
+          else if (file.name.startsWith('egg_icons/') || file.name.startsWith('parent_icons/')) {
+            final parts = file.name.split('/');
+            final dirName = parts[0];
+            final fileName = parts[1];
+            
+            final dir = Directory(p.join(appDocsPath, dirName));
+            if (!await dir.exists()) await dir.create(recursive: true);
+            
+            final outFile = File(p.join(dir.path, fileName));
+            await outFile.writeAsBytes(file.content as List<int>);
+          }
+        }
+      }
+
+      if (data == null) return false;
+
+      // 3. 将文本数据插入数据库（智能过滤兼容）
+      final db = await instance.db;
+      await db.transaction((txn) async {
+        for (var t in ['accounts', 'parents', 'pairings', 'pairing_fathers', 'eggs', 'price_rules', 'blacklist', 'egg_categories', 'articles']) {
+          await txn.delete(t);
+          
+          if (data![t] != null) {
+            final tableInfo = await txn.rawQuery('PRAGMA table_info($t)');
+            final validColumns = tableInfo.map((e) => e['name'] as String).toSet();
+
+            for (var row in data![t]) {
+              Map<String, dynamic> safeRow = {};
+              row.forEach((key, value) {
+                if (validColumns.contains(key)) safeRow[key] = value;
+              });
+              await txn.insert(t, safeRow, conflictAlgorithm: ConflictAlgorithm.replace);
+            }
+          }
+        }
+      });
+      return true;
+    } catch (e) {
+      debugPrint('Import error: $e');
+      return false;
+    }
+  }
+
+  Future<String?> exportArticlesOnly() async {
+    final db = await instance.db;
+    final rows = await db.query('articles');
+    String jsonStr = jsonEncode({'articles': rows});
+    try {
+      return await FilePicker.platform.saveFile(dialogTitle: '保存文本备份', fileName: 'elf_egg_text_backup.json', bytes: utf8.encode(jsonStr));
+    } catch (e) { return null; }
+  }
+
+  Future<bool> importArticlesOnly() async {
+    try {
+      final res = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['json']);
+      if (res == null || res.files.single.path == null) return false;
+      final jsonStr = await File(res.files.single.path!).readAsString();
+      final Map<String, dynamic> data = jsonDecode(jsonStr);
+      if (!data.containsKey('articles')) return false;
+
+      final db = await instance.db;
+      await db.transaction((txn) async {
+        await txn.delete('articles');
+        for (var row in data['articles']) { 
+          await txn.insert('articles', Map<String, dynamic>.from(row), conflictAlgorithm: ConflictAlgorithm.replace); 
+        }
+      });
+      return true;
+    } catch (e) { return false; }
+  }
+
+  Future<String?> exportToExcel() async {
+    final db = await instance.db;
+    final eggs = await db.query('eggs', orderBy: 'created_at DESC');
+
+    var excel = Excel.createExcel();
+    Sheet sheetObject = excel['精灵蛋数据'];
+    excel.delete('Sheet1');
+
+    List<String> headers = [
+      '蛋名', '重量(kg)', '窝类型', '收取日期', '性格', '标价', 
+      '状态', '售卖平台', '买家平台名称', '买家平台ID', '买家游戏名称', '买家游戏ID', 
+      '父本(快照)', '母本(快照)', '备注', '售后方案'
+    ];
+    sheetObject.appendRow(headers.map((e) => TextCellValue(e)).toList());
+
+    for (var row in eggs) {
+      sheetObject.appendRow([
+        TextCellValue(row['name']?.toString() ?? ''),
+        DoubleCellValue((row['weight'] as num?)?.toDouble() ?? 0),
+        TextCellValue(row['nest_type']?.toString() ?? '普窝'),
+        TextCellValue(row['obtained_date']?.toString() ?? ''),
+        TextCellValue(row['nature']?.toString() ?? ''),
+        DoubleCellValue((row['price'] as num?)?.toDouble() ?? 0),
+        TextCellValue(row['status']?.toString() ?? '在库'),
+        TextCellValue(row['sale_platform']?.toString() ?? ''),
+        TextCellValue(row['buyer_platform_name']?.toString() ?? ''),
+        TextCellValue(row['buyer_platform_id']?.toString() ?? ''),
+        TextCellValue(row['buyer_game_name']?.toString() ?? ''),
+        TextCellValue(row['buyer_game_id']?.toString() ?? ''),
+        TextCellValue(row['father_name_snapshot']?.toString() ?? ''),
+        TextCellValue(row['mother_name_snapshot']?.toString() ?? ''),
+        TextCellValue(row['note']?.toString() ?? ''),
+        TextCellValue(row['after_sales_plan']?.toString() ?? ''),
+      ]);
+    }
+
+    for (var i = 0; i < headers.length; i++) {
+      sheetObject.setColumnWidth(i, 15.0);
+    }
+
+    List<int>? fileBytes = excel.save();
+    if (fileBytes != null) {
+      try {
+        return await FilePicker.platform.saveFile(
+          dialogTitle: '保存 Excel 表格',
+          fileName: '精灵蛋数据导出.xlsx',
+          bytes: Uint8List.fromList(fileBytes),
+        );
+      } catch (e) { return null; }
+    }
+    return null;
+  }
 }
 
-// ... copyImageToLocal 保持不变 ...
+Future<String> copyImageToLocal(String sourcePath, String folderName) async {
+  final dir = Directory(p.join(appDocsPath, folderName));
+  if (!await dir.exists()) await dir.create(recursive: true);
+  final ext = p.extension(sourcePath).isEmpty ? '.png' : p.extension(sourcePath);
+  final name = '${DateTime.now().millisecondsSinceEpoch}$ext';
+  await File(sourcePath).copy(p.join(dir.path, name));
+  return name;
+}
 
-// 以下是新增的核心同步逻辑：
 Future<String?> syncEggImage(String name, String? tempNewPath, String? currentPath) async {
   final db = await AppDatabase.instance.db;
   String? finalPath = currentPath;
 
   if (tempNewPath != null) {
-    // 1. 保存新图片到本地
     finalPath = await copyImageToLocal(tempNewPath, 'egg_icons');
-    
-    // 2. 找出所有同名记录（不管是在蛋库还是父母本库）
     final sameNameEggs = await db.query('eggs', where: 'name = ?', whereArgs: [name]);
     final sameNameParents = await db.query('parents', where: 'name = ?', whereArgs: [name]);
     
-    // 3. 收集旧图准备物理删除
     Set<String> oldFilesToDelete = {};
-    for (var row in sameNameEggs) {
-      if (row['icon_path'] != null && row['icon_path'] != finalPath) oldFilesToDelete.add(row['icon_path'] as String);
-    }
-    for (var row in sameNameParents) {
-      if (row['icon_path'] != null && row['icon_path'] != finalPath) oldFilesToDelete.add(row['icon_path'] as String);
-    }
+    for (var row in sameNameEggs) { if (row['icon_path'] != null && row['icon_path'] != finalPath) oldFilesToDelete.add(row['icon_path'] as String); }
+    for (var row in sameNameParents) { if (row['icon_path'] != null && row['icon_path'] != finalPath) oldFilesToDelete.add(row['icon_path'] as String); }
     
-    // 4. 批量更新数据库中的图片路径
     await db.update('eggs', {'icon_path': finalPath}, where: 'name = ?', whereArgs: [name]);
     await db.update('parents', {'icon_path': finalPath}, where: 'name = ?', whereArgs: [name]);
     
-    // 5. 物理删除旧图片文件
     for (var oldFile in oldFilesToDelete) {
       final f1 = File(p.join(appDocsPath, 'egg_icons', oldFile));
       final f2 = File(p.join(appDocsPath, 'parent_icons', oldFile));
@@ -54,11 +282,8 @@ Future<String?> syncEggImage(String name, String? tempNewPath, String? currentPa
       if (await f2.exists()) await f2.delete();
     }
   } else if (finalPath == null) {
-    // 没传新图，且当前没图，找同名继承
     final exist = await db.query('eggs', where: 'name = ? AND icon_path IS NOT NULL', whereArgs: [name], limit: 1);
-    if (exist.isNotEmpty) {
-       finalPath = exist.first['icon_path'] as String?;
-    } else {
+    if (exist.isNotEmpty) { finalPath = exist.first['icon_path'] as String?; } else {
        final existParent = await db.query('parents', where: 'name = ? AND icon_path IS NOT NULL', whereArgs: [name], limit: 1);
        if (existParent.isNotEmpty) finalPath = existParent.first['icon_path'] as String?;
     }
@@ -72,17 +297,12 @@ Future<String?> syncParentImage(String name, String? tempNewPath, String? curren
 
   if (tempNewPath != null) {
     finalPath = await copyImageToLocal(tempNewPath, 'parent_icons');
-    
     final sameNameEggs = await db.query('eggs', where: 'name = ?', whereArgs: [name]);
     final sameNameParents = await db.query('parents', where: 'name = ?', whereArgs: [name]);
     
     Set<String> oldFilesToDelete = {};
-    for (var row in sameNameEggs) {
-      if (row['icon_path'] != null && row['icon_path'] != finalPath) oldFilesToDelete.add(row['icon_path'] as String);
-    }
-    for (var row in sameNameParents) {
-      if (row['icon_path'] != null && row['icon_path'] != finalPath) oldFilesToDelete.add(row['icon_path'] as String);
-    }
+    for (var row in sameNameEggs) { if (row['icon_path'] != null && row['icon_path'] != finalPath) oldFilesToDelete.add(row['icon_path'] as String); }
+    for (var row in sameNameParents) { if (row['icon_path'] != null && row['icon_path'] != finalPath) oldFilesToDelete.add(row['icon_path'] as String); }
     
     await db.update('eggs', {'icon_path': finalPath}, where: 'name = ?', whereArgs: [name]);
     await db.update('parents', {'icon_path': finalPath}, where: 'name = ?', whereArgs: [name]);
@@ -95,9 +315,7 @@ Future<String?> syncParentImage(String name, String? tempNewPath, String? curren
     }
   } else if (finalPath == null) {
     final exist = await db.query('parents', where: 'name = ? AND icon_path IS NOT NULL', whereArgs: [name], limit: 1);
-    if (exist.isNotEmpty) {
-       finalPath = exist.first['icon_path'] as String?;
-    } else {
+    if (exist.isNotEmpty) { finalPath = exist.first['icon_path'] as String?; } else {
        final existEgg = await db.query('eggs', where: 'name = ? AND icon_path IS NOT NULL', whereArgs: [name], limit: 1);
        if (existEgg.isNotEmpty) finalPath = existEgg.first['icon_path'] as String?;
     }
