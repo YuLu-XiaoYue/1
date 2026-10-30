@@ -89,6 +89,114 @@ class EggListPageState extends State<EggListPage> {
     if (confirm == true) { final db = await AppDatabase.instance.db; await db.delete('eggs', where: 'id = ?', whereArgs: [id]); _load(); }
   }
 
+  // --- 新增：弹出的筛选窗口 ---
+  void _showFilterDialog() {
+    Set<String> tempTags = Set.from(_filterTags);
+    bool tempMatchAll = _filterMatchAll;
+
+    showDialog(
+      context: context,
+      builder: (c) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Text('筛选条件'),
+            contentPadding: const EdgeInsets.only(top: 16),
+            content: SizedBox(
+              width: 300,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('条件组合：', style: TextStyle(fontWeight: FontWeight.bold)),
+                          DropdownButton<bool>(
+                            value: tempMatchAll,
+                            items: const [
+                              DropdownMenuItem(value: false, child: Text('满足其一 (或)')),
+                              DropdownMenuItem(value: true, child: Text('全部满足 (且)')),
+                            ],
+                            onChanged: (v) => setDialogState(() => tempMatchAll = v!),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('已选条件：'),
+                          TextButton(
+                            onPressed: () => setDialogState(() => tempTags.clear()),
+                            child: const Text('清空选择'),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(),
+                    
+                    // 绿窝选项
+                    CheckboxListTile(
+                      value: tempTags.contains('绿窝'),
+                      title: Row(children: [
+                        Image.asset('assets/nest_types/green_nest.png', width: 20, height: 20, errorBuilder: (c,e,s) => const Icon(Icons.eco, size: 20, color: Colors.green)),
+                        const SizedBox(width: 8),
+                        const Text('绿窝'),
+                      ]),
+                      onChanged: (v) => setDialogState(() { if (v!) { tempTags.add('绿窝'); } else { tempTags.remove('绿窝'); } }),
+                      controlAffinity: ListTileControlAffinity.trailing,
+                    ),
+                    const Divider(),
+                    
+                    // 奖牌选项
+                    ...sizeMedals.map((m) => CheckboxListTile(
+                      value: tempTags.contains(m),
+                      title: Row(children: [
+                        Image.asset('assets/medals/${medalIconMap[m] ?? m}.png', width: 20, height: 20, errorBuilder: (c,e,s) => const Icon(Icons.military_tech, size: 20, color: Colors.grey)),
+                        const SizedBox(width: 8),
+                        Text(m),
+                      ]),
+                      onChanged: (v) => setDialogState(() { if (v!) { tempTags.add(m); } else { tempTags.remove(m); } }),
+                      controlAffinity: ListTileControlAffinity.trailing,
+                    )),
+                    ...voiceMedals.map((m) => CheckboxListTile(
+                      value: tempTags.contains(m),
+                      title: Row(children: [
+                        Image.asset('assets/medals/${medalIconMap[m] ?? m}.png', width: 20, height: 20, errorBuilder: (c,e,s) => const Icon(Icons.military_tech, size: 20, color: Colors.grey)),
+                        const SizedBox(width: 8),
+                        Text(m),
+                      ]),
+                      onChanged: (v) => setDialogState(() { if (v!) { tempTags.add(m); } else { tempTags.remove(m); } }),
+                      controlAffinity: ListTileControlAffinity.trailing,
+                    )),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(c), child: const Text('取消')),
+              ElevatedButton(
+                onPressed: () {
+                  setState(() {
+                    _filterTags = tempTags;
+                    _filterMatchAll = tempMatchAll;
+                  });
+                  Navigator.pop(c);
+                }, 
+                child: const Text('确定筛选')
+              ),
+            ],
+          );
+        }
+      ),
+    );
+  }
+  // ----------------------------
+
   Widget _buildEggIconWithBadges(Egg e) {
     return Stack(
       clipBehavior: Clip.none,
@@ -195,58 +303,14 @@ class EggListPageState extends State<EggListPage> {
               children: [
                 Expanded(child: TextField(onChanged: (v) => setState(() => _searchQuery = v), decoration: const InputDecoration(hintText: '搜索名字/买家', prefixIcon: Icon(Icons.search), isDense: true, border: OutlineInputBorder()))),
                 const SizedBox(width: 8),
-                PopupMenuButton<String>(
+                
+                // 新的筛选按钮（用普通 IconButton 触发 Dialog）
+                IconButton(
                   tooltip: '筛选与过滤',
-                  icon: const Icon(Icons.filter_alt),
-                  onSelected: (v) { 
-                    if (v == 'clear') { setState(() => _filterTags.clear()); } 
-                    else if (v == 'toggle') { setState(() => _filterMatchAll = !_filterMatchAll); } 
-                    else { 
-                      setState(() { 
-                        if (_filterTags.contains(v)) { _filterTags.remove(v); } else { _filterTags.add(v); } 
-                      }); 
-                    } 
-                  },
-                  itemBuilder: (c) => [
-                    PopupMenuItem(value: 'toggle', child: Text('当前条件: ${_filterMatchAll ? "全部满足" : "满足其一"}')),
-                    const PopupMenuItem(value: 'clear', child: Text('清空筛选')),
-                    const PopupMenuDivider(),
-                    CheckedPopupMenuItem(
-                      value: '绿窝',
-                      checked: _filterTags.contains('绿窝'),
-                      child: Row(
-                        children: [
-                          Image.asset('assets/nest_types/green_nest.png', width: 18, height: 18, errorBuilder: (c,e,s) => const Icon(Icons.eco, size: 18, color: Colors.green)), 
-                          const SizedBox(width: 8),
-                          const Text('绿窝'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuDivider(),
-                    ...sizeMedals.map((m) => CheckedPopupMenuItem(
-                      value: m, 
-                      checked: _filterTags.contains(m), 
-                      child: Row(
-                        children: [
-                          Image.asset('assets/medals/${medalIconMap[m] ?? m}.png', width: 18, height: 18, errorBuilder: (c,e,s) => const Icon(Icons.military_tech, size: 18, color: Colors.grey)),
-                          const SizedBox(width: 8),
-                          Text(m)
-                        ],
-                      )
-                    )),
-                    ...voiceMedals.map((m) => CheckedPopupMenuItem(
-                      value: m, 
-                      checked: _filterTags.contains(m), 
-                      child: Row(
-                        children: [
-                          Image.asset('assets/medals/${medalIconMap[m] ?? m}.png', width: 18, height: 18, errorBuilder: (c,e,s) => const Icon(Icons.military_tech, size: 18, color: Colors.grey)),
-                          const SizedBox(width: 8),
-                          Text(m)
-                        ],
-                      )
-                    )),
-                  ],
+                  icon: Icon(Icons.filter_alt, color: _filterTags.isNotEmpty ? Theme.of(context).colorScheme.primary : null), // 有选中条件时图标变色
+                  onPressed: _showFilterDialog,
                 ),
+                
                 PopupMenuButton<String>(
                   tooltip: '排序方式',
                   icon: const Icon(Icons.sort),
@@ -261,7 +325,6 @@ class EggListPageState extends State<EggListPage> {
           ),
         ],
       ),
-      // 调整悬浮按钮的位置
       floatingActionButton: widget.viewType == '在库/预定' ? Padding(
         padding: const EdgeInsets.only(bottom: 24, right: 8),
         child: FloatingActionButton(
@@ -294,7 +357,7 @@ class EggListPageState extends State<EggListPage> {
           onSecondaryTap: () => _deleteEgg(e.id!),
           child: Slidable(
             key: ValueKey(e.id),
-            extentRatio: 0.25, // 控制滑开比例，把删除按钮变小
+            extentRatio: 0.25, 
             endActionPane: ActionPane(motion: const ScrollMotion(), children: [SlidableAction(onPressed: (_) => _deleteEgg(e.id!), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')]),
             child: InkWell(
               onTap: () async { 
@@ -355,7 +418,7 @@ class EggListPageState extends State<EggListPage> {
                     onSecondaryTap: () => _deleteEgg(e.id!),
                     child: Slidable(
                       key: ValueKey(e.id),
-                      extentRatio: 0.25, // 控制滑开比例
+                      extentRatio: 0.25, 
                       endActionPane: ActionPane(motion: const ScrollMotion(), children: [SlidableAction(onPressed: (_) => _deleteEgg(e.id!), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')]),
                       child: InkWell(
                         onTap: () async { 
