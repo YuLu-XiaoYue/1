@@ -281,6 +281,10 @@ class EggListPageState extends State<EggListPage> {
         String subtitleText = widget.viewType != '在库/预定' ? '买家: $buyerText$afterSalesTag' : '收取: ${e.obtainedDate} | 标价:${e.price ?? "-"}';
 
         return GestureDetector(
+          onTap: () async { 
+            await Navigator.push(context, MaterialPageRoute(builder: (_) => EggEditPage(egg: e))); 
+            _load(); 
+          }, // 修复：加上了点击事件
           onSecondaryTap: () => _deleteEgg(e.id!),
           child: Slidable(
             key: ValueKey(e.id),
@@ -335,6 +339,10 @@ class EggListPageState extends State<EggListPage> {
                   String subtitleText = '买家: $buyerText$afterSalesTag';
 
                   return GestureDetector(
+                    onTap: () async { 
+                      await Navigator.push(context, MaterialPageRoute(builder: (_) => EggEditPage(egg: e))); 
+                      _load(); 
+                    }, // 修复：加上了点击事件
                     onSecondaryTap: () => _deleteEgg(e.id!),
                     child: Slidable(
                       key: ValueKey(e.id),
@@ -721,31 +729,31 @@ class _EggEditPageState extends State<EggEditPage> {
           ),
         ),
 
-        const SizedBox(height: 24), // 加大间距
+        const SizedBox(height: 24),
         Row(children: [
           Expanded(child: TextField(controller: _natureCtrl, enabled: !isReadOnly, decoration: const InputDecoration(labelText: '性格'))),
           const SizedBox(width: 16),
           Expanded(child: TextField(controller: _priceCtrl, enabled: !isReadOnly, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '标价'))),
         ]),
         
-        const SizedBox(height: 24), // 加大间距
+        const SizedBox(height: 24),
         const Text('体型/重量奖牌 (单选)', style: TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8), // 标题和标签之间加一点点距离
+        const SizedBox(height: 8),
         Wrap(spacing: 8, children: sizeMedals.map((m) => ChoiceChip(label: _buildMedalChip(m), selected: _sizeMedal == m, onSelected: isReadOnly ? null : (v) => setState(() => _sizeMedal = v ? m : null))).toList()),
         
-        const SizedBox(height: 24), // 加大间距
+        const SizedBox(height: 24),
         const Text('声音奖牌 (单选)', style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         Wrap(spacing: 8, children: voiceMedals.map((m) => ChoiceChip(label: _buildMedalChip(m), selected: _voiceMedal == m, onSelected: isReadOnly ? null : (v) => setState(() => _voiceMedal = v ? m : null))).toList()),
         
-        const SizedBox(height: 24), // 加大间距
+        const SizedBox(height: 24),
         DropdownButtonFormField<String>(
           value: _status, isExpanded: true, menuMaxHeight: 250, decoration: const InputDecoration(labelText: '状态'),
           items: ['在库', '已预定', '已售出', '需售后'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
           onChanged: (v) => setState(() => _status = v!),
         ),
         
-        const SizedBox(height: 32), // 区块之间留出更大空间
+        const SizedBox(height: 32),
         const Text('买家与交易信息', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey)),
         const Divider(),
         const SizedBox(height: 8),
@@ -759,7 +767,7 @@ class _EggEditPageState extends State<EggEditPage> {
         const SizedBox(height: 12),
         TextField(controller: _buyerGameIdCtrl, decoration: const InputDecoration(labelText: '买家游戏ID')),
         
-        const SizedBox(height: 32), // 区块之间留出更大空间
+        const SizedBox(height: 32),
         const Text('其他', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey)),
         const Divider(),
         const SizedBox(height: 8),
