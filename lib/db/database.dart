@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
-import 'dart:typed_data'; // 新增
-import 'package:excel/excel.dart'; // 新增
+import 'dart:typed_data';
+import 'package:excel/excel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
@@ -58,7 +58,6 @@ class AppDatabase {
     );
   }
 
-  // ... (备份相关方法保持不变)
   Future<String?> exportBackup() async {
     final db = await instance.db;
     final tables = ['accounts', 'parents', 'pairings', 'pairing_fathers', 'eggs', 'price_rules', 'blacklist', 'egg_categories', 'articles'];
@@ -70,23 +69,45 @@ class AppDatabase {
     } catch (e) { return null; }
   }
 
+  // ==== 升级：带智能过滤的导入方法 ====
   Future<bool> importBackup() async {
     try {
       final res = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['json']);
       if (res == null || res.files.single.path == null) return false;
       final jsonStr = await File(res.files.single.path!).readAsString();
       final Map<String, dynamic> data = jsonDecode(jsonStr);
+      
       if (!data.containsKey('eggs') || !data.containsKey('parents')) return false;
 
       final db = await instance.db;
       await db.transaction((txn) async {
         for (var t in ['accounts', 'parents', 'pairings', 'pairing_fathers', 'eggs', 'price_rules', 'blacklist', 'egg_categories', 'articles']) {
           await txn.delete(t);
-          for (var row in data[t] ?? []) { await txn.insert(t, Map<String, dynamic>.from(row)); }
+          
+          if (data[t] != null) {
+            // 1. 获取当前数据库里这张表真正的字段
+            final tableInfo = await txn.rawQuery('PRAGMA table_info($t)');
+            final validColumns = tableInfo.map((e) => e['name'] as String).toSet();
+
+            for (var row in data[t]) {
+              Map<String, dynamic> safeRow = {};
+              // 2. 遍历旧备份里的数据，只保留新版本里有的字段
+              row.forEach((key, value) {
+                if (validColumns.contains(key)) {
+                  safeRow[key] = value;
+                }
+              });
+              // 3. 安全插入
+              await txn.insert(t, safeRow, conflictAlgorithm: ConflictAlgorithm.replace);
+            }
+          }
         }
       });
       return true;
-    } catch (e) { return false; }
+    } catch (e) {
+      debugPrint('Import error: $e');
+      return false;
+    }
   }
 
   Future<String?> exportArticlesOnly() async {
@@ -109,33 +130,29 @@ class AppDatabase {
       final db = await instance.db;
       await db.transaction((txn) async {
         await txn.delete('articles');
-        for (var row in data['articles']) { await txn.insert('articles', Map<String, dynamic>.from(row)); }
+        for (var row in data['articles']) { 
+          await txn.insert('articles', Map<String, dynamic>.from(row), conflictAlgorithm: ConflictAlgorithm.replace); 
+        }
       });
       return true;
     } catch (e) { return false; }
   }
 
-  // ================= 新增：导出为 Excel =================
   Future<String?> exportToExcel() async {
     final db = await instance.db;
     final eggs = await db.query('eggs', orderBy: 'created_at DESC');
 
     var excel = Excel.createExcel();
     Sheet sheetObject = excel['精灵蛋数据'];
-    
-    // 删除默认的 Sheet1
     excel.delete('Sheet1');
 
-    // 设置表头
     List<String> headers = [
       '蛋名', '重量(kg)', '窝类型', '收取日期', '性格', '标价', 
       '状态', '售卖平台', '买家平台名称', '买家平台ID', '买家游戏名称', '买家游戏ID', 
       '父本(快照)', '母本(快照)', '备注', '售后方案'
     ];
-    
     sheetObject.appendRow(headers.map((e) => TextCellValue(e)).toList());
 
-    // 写入数据
     for (var row in eggs) {
       sheetObject.appendRow([
         TextCellValue(row['name']?.toString() ?? ''),
@@ -157,12 +174,10 @@ class AppDatabase {
       ]);
     }
 
-    // 调整列宽（可选优化）
     for (var i = 0; i < headers.length; i++) {
       sheetObject.setColumnWidth(i, 15.0);
     }
 
-    // 生成文件并保存
     List<int>? fileBytes = excel.save();
     if (fileBytes != null) {
       try {
@@ -171,9 +186,7 @@ class AppDatabase {
           fileName: '精灵蛋数据导出.xlsx',
           bytes: Uint8List.fromList(fileBytes),
         );
-      } catch (e) {
-        return null;
-      }
+      } catch (e) { return null; }
     }
     return null;
   }
