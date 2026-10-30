@@ -23,8 +23,7 @@ class AppDatabase {
       sqfliteFfiInit();
       databaseFactory = databaseFactoryFfi;
     }
-    // 数据库版本升级为 v14
-    final path = p.join(dir.path, 'elf_egg_v14.db'); 
+    final path = p.join(dir.path, 'elf_egg_v15.db'); 
     return databaseFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(
@@ -34,15 +33,15 @@ class AppDatabase {
           await db.execute('CREATE TABLE parents(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, gender TEXT, account TEXT, nature TEXT, height REAL, weight REAL, voice REAL, bloodline TEXT, icon_path TEXT, created_at INTEGER, appearance TEXT)');
           await db.execute('CREATE TABLE pairings(id INTEGER PRIMARY KEY AUTOINCREMENT, account TEXT, mother_id INTEGER)');
           await db.execute('CREATE TABLE pairing_fathers(pairing_id INTEGER, father_id INTEGER, PRIMARY KEY(pairing_id, father_id))');
-          // 增加 note 和 买家细分字段
-          await db.execute('CREATE TABLE eggs(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, weight REAL, medals TEXT, nature TEXT, account TEXT, father_id INTEGER, mother_id INTEGER, father_name_snapshot TEXT, mother_name_snapshot TEXT, icon_path TEXT, price REAL, status TEXT, sale_platform TEXT, buyer_platform_name TEXT, buyer_platform_id TEXT, buyer_game_name TEXT, buyer_game_id TEXT, note TEXT, created_at INTEGER, updated_at INTEGER, nest_type TEXT, obtained_date TEXT, after_sales_plan TEXT, is_after_sales INTEGER)');
+          // 加入 pairing_id
+          await db.execute('CREATE TABLE eggs(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, weight REAL, medals TEXT, nature TEXT, account TEXT, pairing_id INTEGER, father_id INTEGER, mother_id INTEGER, father_name_snapshot TEXT, mother_name_snapshot TEXT, icon_path TEXT, price REAL, status TEXT, sale_platform TEXT, buyer_platform_name TEXT, buyer_platform_id TEXT, buyer_game_name TEXT, buyer_game_id TEXT, note TEXT, created_at INTEGER, updated_at INTEGER, nest_type TEXT, obtained_date TEXT, after_sales_plan TEXT, is_after_sales INTEGER)');
           await db.execute('CREATE TABLE price_rules(id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT, min_weight REAL, max_weight REAL, price REAL)');
           await db.execute('CREATE TABLE blacklist(id INTEGER PRIMARY KEY AUTOINCREMENT, platform TEXT, buyer_name TEXT, platform_id TEXT, game_id TEXT, reason TEXT)');
           await db.execute('CREATE TABLE egg_categories(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)');
           await db.execute('CREATE TABLE articles(id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT, content TEXT)');
           
           await db.insert('accounts', {'name': '默认账号'});
-          await db.insert('articles', {'type': 'tutorial', 'content': '欢迎使用精灵蛋仓库！\n\n1. 去【精灵蛋】顶部添加分类Tab（如: 小黑猫）。\n2. 去【设置】里根据分类设置价格规则。\n3. 录入精灵蛋时输入名字和重量，会自动匹配价格。'});
+          await db.insert('articles', {'type': 'tutorial', 'content': '欢迎使用精灵蛋仓库！'});
           await db.insert('articles', {'type': 'log', 'content': 'v1.0.0\n- 初始版本发布。'});
         },
       ),
