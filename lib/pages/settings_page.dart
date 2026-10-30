@@ -85,6 +85,41 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  // 封装一个统一的“导出成功”弹窗
+  void _showExportSuccessDialog(String path) {
+    showDialog(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('导出成功！'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('备份文件已成功保存至以下路径：', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade300)
+              ),
+              child: SelectableText(
+                path,
+                style: const TextStyle(fontSize: 13, fontFamily: 'monospace'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text('提示：你可以长按上方路径进行复制。', style: TextStyle(fontSize: 12, color: Colors.grey)),
+          ],
+        ),
+        actions: [
+          ElevatedButton(onPressed: () => Navigator.pop(c), child: const Text('我知道了')),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDrawerFollowing = widget.currentDrawerColor == null;
@@ -142,7 +177,6 @@ class _SettingsPageState extends State<SettingsPage> {
         const Text('功能设置', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
         
-        // 👇 修改后的蛋重价格规则卡片 👇
         Card(
           elevation: 2,
           margin: EdgeInsets.zero,
@@ -183,14 +217,18 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
         ),
-        // 👆 修改结束 👆
 
         const Divider(height: 48),
         const Text('数据管理 (全量)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 16),
         ElevatedButton.icon(
           style: ElevatedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), padding: const EdgeInsets.symmetric(vertical: 12), backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest, foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant),
-          onPressed: () async { final path = await AppDatabase.instance.exportBackup(); if (path != null && context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('全量备份成功！'))); }, 
+          onPressed: () async { 
+            final path = await AppDatabase.instance.exportBackup(); 
+            if (path != null && context.mounted) {
+              _showExportSuccessDialog(path); // 显示带路径的弹窗
+            }
+          }, 
           icon: const Icon(Icons.download), label: const Text('导出全量备份 (包含所有数据)')
         ),
         const SizedBox(height: 12),
@@ -213,7 +251,12 @@ class _SettingsPageState extends State<SettingsPage> {
         const SizedBox(height: 16),
         ElevatedButton.icon(
           style: ElevatedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), padding: const EdgeInsets.symmetric(vertical: 12), backgroundColor: Colors.blue.shade50, foregroundColor: Colors.blue.shade700),
-          onPressed: () async { final path = await AppDatabase.instance.exportArticlesOnly(); if (path != null && context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('文本备份成功！'))); }, 
+          onPressed: () async { 
+            final path = await AppDatabase.instance.exportArticlesOnly(); 
+            if (path != null && context.mounted) {
+              _showExportSuccessDialog(path); // 显示带路径的弹窗
+            }
+          }, 
           icon: const Icon(Icons.text_snippet), label: const Text('仅导出教学与日志')
         ),
         const SizedBox(height: 12),
