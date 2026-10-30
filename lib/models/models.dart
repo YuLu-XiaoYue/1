@@ -52,16 +52,15 @@ class Pairing {
   factory Pairing.fromMap(Map<String, Object?> m) => Pairing(id: m['id'] as int?, account: m['account'] as String, motherId: m['mother_id'] as int, nestType: m['nest_type'] as String? ?? '普窝');
 }
 
-// 新增：产线模型
 class ProductionLine {
   final int? id;
-  final String name; // 产线名 (即蛋名)
+  final String name; 
   final String accountName;
   final String? accountId;
-  final String nestType; // 普窝/绿窝
+  final String nestType; 
   final int pairingId;
-  final String nature; // 自动识别的性格
-  final String natureProb; // 自动识别的概率
+  final String nature; 
+  final String natureProb; 
   final String? iconPath;
   final List<String> medals;
   final int? createdAt;
@@ -85,7 +84,6 @@ class ProductionLine {
 }
 
 class Egg {
-  // ... (保持原来的 Egg 模型字段，由于太长省略，你可以直接保留你现在的 Egg 代码)
   final int? id;
   final String name;
   final double weight;
@@ -146,7 +144,28 @@ class Egg {
   );
 }
 
-// ... (Blacklist, Article 保持原样) ...
+class Blacklist {
+  final int? id;
+  final String platform;
+  final String buyerName;
+  final String platformId;
+  final String gameId;
+  final String? reason;
+
+  Blacklist({this.id, required this.platform, required this.buyerName, required this.platformId, required this.gameId, this.reason});
+
+  Map<String, Object?> toMap() => {'id': id, 'platform': platform, 'buyer_name': buyerName, 'platform_id': platformId, 'game_id': gameId, 'reason': reason};
+  factory Blacklist.fromMap(Map<String, Object?> m) => Blacklist(id: m['id'] as int?, platform: m['platform'] as String, buyerName: m['buyer_name'] as String, platformId: m['platform_id'] as String, gameId: m['game_id'] as String, reason: m['reason'] as String?);
+}
+
+class Article {
+  final int? id;
+  final String type; 
+  final String content;
+  Article({this.id, required this.type, required this.content});
+  Map<String, Object?> toMap() => {'id': id, 'type': type, 'content': content};
+  factory Article.fromMap(Map<String, Object?> m) => Article(id: m['id'] as int?, type: m['type'] as String, content: m['content'] as String);
+}
 
 const List<String> bloodlines = ['普通','草','火','水','光','地','冰','龙','电','毒','虫','武','翼','萌','幽','恶','机械','幻','首领','污染','奇异'];
 const List<String> sizeMedals = ['大块头', '满重', '小不点', '满轻'];
@@ -158,6 +177,12 @@ String calculateNature(List<Parent> fathers, Parent mother) {
   String mNature = mother.nature ?? '未知';
   Set<String> fNatures = fathers.map((f) => f.nature ?? '未知').toSet();
 
+  // 检查父母本性格种类是否 >= 3
+  Set<String> allNatures = {mNature, ...fNatures};
+  if (allNatures.length >= 3) {
+    return '混窝|随机';
+  }
+
   if (fNatures.length == 1) {
     String fNature = fNatures.first;
     if (mNature == fNature) {
@@ -166,7 +191,6 @@ String calculateNature(List<Parent> fathers, Parent mother) {
       return '$mNature丨$fNature|30%$mNature+30%$fNature+40%随机';
     }
   } else {
-    // 父母本性格总共超过3种（或父本性格不同）
     return '混窝|随机';
   }
 }
