@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:package_info_plus/package_info_plus.dart'; // 引入版本号插件
+import 'package:package_info_plus/package_info_plus.dart';
 import 'db/database.dart';
 import 'pages/egg_list_page.dart';
 import 'pages/pairing_page.dart';
@@ -25,6 +25,7 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   Color _themeColor = Colors.teal;
   Color _bgColor = const Color(0xFFF5F5F5);
+  Color? _drawerColor; // null代表跟随主题色
 
   @override
   void initState() { super.initState(); _loadTheme(); }
@@ -34,6 +35,8 @@ class _MyAppState extends State<MyApp> {
     setState(() {
       _themeColor = Color(prefs.getInt('theme_color') ?? Colors.teal.value);
       _bgColor = Color(prefs.getInt('bg_color') ?? 0xFFF5F5F5);
+      int? dc = prefs.getInt('drawer_color');
+      _drawerColor = dc != null ? Color(dc) : null;
     });
   }
 
@@ -61,9 +64,12 @@ class _MyAppState extends State<MyApp> {
         ),
       ),
       home: MainLayout(
-        currentThemeColor: _themeColor, currentBgColor: _bgColor,
+        currentThemeColor: _themeColor, 
+        currentBgColor: _bgColor,
+        currentDrawerColor: _drawerColor,
         onThemeColorChanged: (c) => setState(() => _themeColor = c),
         onBgColorChanged: (c) => setState(() => _bgColor = c),
+        onDrawerColorChanged: (c) => setState(() => _drawerColor = c),
       ),
     );
   }
@@ -72,9 +78,20 @@ class _MyAppState extends State<MyApp> {
 class MainLayout extends StatefulWidget {
   final Color currentThemeColor;
   final Color currentBgColor;
+  final Color? currentDrawerColor;
   final Function(Color) onThemeColorChanged;
   final Function(Color) onBgColorChanged;
-  const MainLayout({super.key, required this.currentThemeColor, required this.currentBgColor, required this.onThemeColorChanged, required this.onBgColorChanged});
+  final Function(Color?) onDrawerColorChanged;
+
+  const MainLayout({
+    super.key, 
+    required this.currentThemeColor, 
+    required this.currentBgColor, 
+    required this.currentDrawerColor,
+    required this.onThemeColorChanged, 
+    required this.onBgColorChanged,
+    required this.onDrawerColorChanged,
+  });
 
   @override
   State<MainLayout> createState() => _MainLayoutState();
@@ -83,7 +100,7 @@ class MainLayout extends StatefulWidget {
 class _MainLayoutState extends State<MainLayout> {
   int _index = 0;
   final List<String> _titles = ['精灵蛋', '已售出', '售后订单', '黑名单', '配对库', '父母本库', '新手教学', '更新日志', '设置'];
-  String _versionText = '加载中...'; // 动态版本号变量
+  String _versionText = '加载中...'; 
 
   final GlobalKey<EggListPageState> _eggKey0 = GlobalKey();
   final GlobalKey<EggListPageState> _eggKey1 = GlobalKey();
@@ -97,7 +114,6 @@ class _MainLayoutState extends State<MainLayout> {
     _loadVersion();
   }
 
-  // 自动读取版本号
   Future<void> _loadVersion() async {
     final info = await PackageInfo.fromPlatform();
     if (mounted) {
@@ -109,6 +125,9 @@ class _MainLayoutState extends State<MainLayout> {
 
   @override
   Widget build(BuildContext context) {
+    // 如果独立侧边栏颜色为空，则跟随主题色
+    final drawerColor = widget.currentDrawerColor ?? widget.currentThemeColor;
+
     return Scaffold(
       appBar: AppBar(title: Text(_titles[_index])),
       drawer: GestureDetector(
@@ -117,7 +136,8 @@ class _MainLayoutState extends State<MainLayout> {
           child: Column(
             children: [
               DrawerHeader(
-                decoration: BoxDecoration(color: widget.currentThemeColor),
+                // 这里使用独立颜色或主题色
+                decoration: BoxDecoration(color: drawerColor),
                 child: const Align(alignment: Alignment.bottomLeft, child: Text('精灵蛋仓库', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold))),
               ),
               Expanded(
@@ -134,7 +154,6 @@ class _MainLayoutState extends State<MainLayout> {
                   _navItem(8, Icons.settings, '设置'),
                 ]),
               ),
-              // 这里使用了动态获取的变量
               Padding(padding: const EdgeInsets.all(16), child: Text('当前版本: $_versionText', style: const TextStyle(color: Colors.grey, fontSize: 12))),
             ],
           ),
@@ -151,7 +170,15 @@ class _MainLayoutState extends State<MainLayout> {
           ParentPage(key: _parentKey),
           const ArticlePage(type: 'tutorial', title: '新手教学'),
           const ArticlePage(type: 'log', title: '更新日志'),
-          const SettingsPage(),
+          // 将回调传给设置页
+          SettingsPage(
+            currentThemeColor: widget.currentThemeColor,
+            currentBgColor: widget.currentBgColor,
+            currentDrawerColor: widget.currentDrawerColor,
+            onThemeColorChanged: widget.onThemeColorChanged,
+            onBgColorChanged: widget.onBgColorChanged,
+            onDrawerColorChanged: widget.onDrawerColorChanged,
+          ),
         ],
       ),
     );
