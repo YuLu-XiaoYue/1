@@ -31,3 +31,5 @@ flutter:
     - assets/medals/
     - assets/nest_types/
     - assets/special_icons/
+    - assets/tutorial.txt      # 新增
+    - assets/update_log.txt    # 新增
