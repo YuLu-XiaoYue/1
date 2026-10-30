@@ -108,13 +108,27 @@ class ParentPageState extends State<ParentPage> {
   }
 
   void _addAccount() {
-    final ctrl = TextEditingController();
+    final nameCtrl = TextEditingController();
+    final idCtrl = TextEditingController();
     showDialog(context: context, builder: (c) => AlertDialog(
-      title: const Text('添加新账号'), content: TextField(controller: ctrl, decoration: const InputDecoration(labelText: '账号名称')),
+      title: const Text('添加新账号'), 
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: '账号名称 (如: 弹弹弹)')),
+          const SizedBox(height: 12),
+          TextField(controller: idCtrl, decoration: const InputDecoration(labelText: '账号ID / 备注')),
+        ],
+      ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(c), child: const Text('取消')),
         ElevatedButton(onPressed: () async {
-          if (ctrl.text.isNotEmpty) { final db = await AppDatabase.instance.db; await db.insert('accounts', {'name': ctrl.text}); if (mounted) Navigator.pop(c); _loadAccounts(); }
+          if (nameCtrl.text.isNotEmpty) { 
+            final db = await AppDatabase.instance.db; 
+            await db.insert('accounts', {'name': nameCtrl.text, 'account_id': idCtrl.text}); 
+            if (mounted) Navigator.pop(c); 
+            _loadAccounts(); 
+          }
         }, child: const Text('添加')),
       ],
     ));
@@ -152,7 +166,7 @@ class ParentPageState extends State<ParentPage> {
       body: Column(
         children: [
           SizedBox(
-            height: 50,
+            height: 60, // 稍微加高一点容纳两行
             child: Row(
               children: [
                 Expanded(
@@ -162,9 +176,19 @@ class ParentPageState extends State<ParentPage> {
                       onTap: () { setState(() => _currentAccount = acc.name); _loadParents(); },
                       onLongPress: () => _deleteAccount(acc.name),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 24), alignment: Alignment.center,
+                        // 关键：限制最大宽度，防止名字或ID过长把屏幕撑爆
+                        constraints: const BoxConstraints(maxWidth: 150, minWidth: 80),
+                        padding: const EdgeInsets.symmetric(horizontal: 16), 
+                        alignment: Alignment.center,
                         decoration: BoxDecoration(border: Border(bottom: BorderSide(color: _currentAccount == acc.name ? Theme.of(context).colorScheme.primary : Colors.transparent, width: 3))),
-                        child: Text(acc.name, style: TextStyle(fontWeight: FontWeight.bold, color: _currentAccount == acc.name ? Theme.of(context).colorScheme.primary : Colors.grey)),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(acc.name, style: TextStyle(fontWeight: FontWeight.bold, color: _currentAccount == acc.name ? Theme.of(context).colorScheme.primary : Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
+                            if (acc.accountId != null && acc.accountId!.isNotEmpty)
+                              Text(acc.accountId!, style: const TextStyle(fontSize: 10, color: Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          ],
+                        ),
                       ),
                     )).toList(),
                   ),
@@ -185,7 +209,7 @@ class ParentPageState extends State<ParentPage> {
                     onSecondaryTap: () => _deleteParent(p),
                     child: Slidable(
                       key: ValueKey(p.id),
-                      extentRatio: 0.25, // 控制滑开比例
+                      extentRatio: 0.25, 
                       endActionPane: ActionPane(motion: const ScrollMotion(), children: [SlidableAction(onPressed: (_) => _deleteParent(p), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')]),
                       child: buildParentCard(
                         context,
@@ -203,7 +227,6 @@ class ParentPageState extends State<ParentPage> {
           ),
         ],
       ),
-      // 调整悬浮按钮的位置
       floatingActionButton: _currentAccount.isEmpty ? null : Padding(
         padding: const EdgeInsets.only(bottom: 24, right: 8),
         child: FloatingActionButton(
