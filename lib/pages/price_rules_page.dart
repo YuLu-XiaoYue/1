@@ -113,6 +113,7 @@ class _PriceRulesPageState extends State<PriceRulesPage> {
                     onSecondaryTap: () => _deleteRule(r['id']), // 电脑端右键删除
                     child: Slidable(
                       key: ValueKey(r['id']),
+                      extentRatio: 0.25, // 控制滑开比例
                       endActionPane: ActionPane(motion: const ScrollMotion(), children: [
                         SlidableAction(onPressed: (_) => _deleteRule(r['id']), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')
                       ]),
@@ -128,7 +129,11 @@ class _PriceRulesPageState extends State<PriceRulesPage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(onPressed: _showAddDialog, child: const Icon(Icons.add)),
+      // 调整悬浮按钮的位置
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 24, right: 8),
+        child: FloatingActionButton(onPressed: _showAddDialog, child: const Icon(Icons.add)),
+      ),
     );
   }
 }
