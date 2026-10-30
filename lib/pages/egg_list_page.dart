@@ -193,31 +193,44 @@ class EggListPageState extends State<EggListPage> {
     );
   }
 
+  // --- 核心修改：把角标从图片上方移到右侧 ---
   Widget _buildEggIconWithBadges(Egg e) {
-    return Stack(
-      clipBehavior: Clip.none,
+    bool hasMedals = e.medals.isNotEmpty;
+    bool hasGreenNest = e.nestType == '绿窝';
+    
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center, // 图片与角标垂直居中对齐
       children: [
         getLocalImage(e.iconPath, 'egg_icons', size: 44),
-        if (e.medals.isNotEmpty)
-          Positioned(
-            right: -8, top: -8,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: e.medals.map((m) => Container(
-                margin: const EdgeInsets.only(left: 2),
-                decoration: const BoxDecoration(shape: BoxShape.circle),
-                child: Image.asset('assets/medals/${medalIconMap[m] ?? m}.png', width: 16, height: 16, errorBuilder: (c,e,s) => const Icon(Icons.star, size: 16, color: Colors.amber)),
-              )).toList(),
-            ),
-          ),
-        if (e.nestType == '绿窝')
-          Positioned(
-            right: -6, bottom: -6, 
-            child: Image.asset('assets/nest_types/green_nest.png', width: 20, height: 20, errorBuilder: (c,e,s) => const Icon(Icons.eco, color: Colors.green, size: 16))
+        if (hasMedals || hasGreenNest)
+          const SizedBox(width: 8), // 图片和角标的间距
+        if (hasMedals || hasGreenNest)
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 奖牌（上方）
+              if (hasMedals)
+                Wrap(
+                  spacing: 2,
+                  children: e.medals.map((m) => Image.asset(
+                    'assets/medals/${medalIconMap[m] ?? m}.png', 
+                    width: 16, height: 16
+                  )).toList(),
+                ),
+              // 绿窝（下方）
+              if (hasGreenNest)
+                Padding(
+                  padding: EdgeInsets.only(top: hasMedals ? 4 : 0),
+                  child: Image.asset('assets/nest_types/green_nest.png', width: 16, height: 16),
+                ),
+            ],
           ),
       ],
     );
   }
+  // ------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -366,7 +379,7 @@ class EggListPageState extends State<EggListPage> {
                     SizedBox(width: 24, child: Text('${i + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey))),
                     const SizedBox(width: 8),
                     _buildEggIconWithBadges(e),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 16), // 角标和文字的间距
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -425,7 +438,7 @@ class EggListPageState extends State<EggListPage> {
                           child: Row(
                             children: [
                               _buildEggIconWithBadges(e),
-                              const SizedBox(width: 16),
+                              const SizedBox(width: 16), // 角标和文字的间距
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -859,7 +872,6 @@ class _EggEditPageState extends State<EggEditPage> {
 
         const SizedBox(height: 80),
       ]),
-      // 优化后的悬浮按钮：加上文字、改成圆角矩形、调整位置
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 24, right: 8),
         child: Row(
