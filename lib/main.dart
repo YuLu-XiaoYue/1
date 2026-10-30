@@ -41,8 +41,6 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       title: '精灵蛋仓库',
       debugShowCheckedModeBanner: false,
-      
-      // 中文本地化配置
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
@@ -50,14 +48,12 @@ class _MyAppState extends State<MyApp> {
       ],
       supportedLocales: const [Locale('zh', 'CN')],
       locale: const Locale('zh', 'CN'),
-
       theme: ThemeData(
         colorSchemeSeed: _themeColor, 
         scaffoldBackgroundColor: _bgColor,
         useMaterial3: true,
         fontFamily: 'Microsoft YaHei',
         fontFamilyFallback: const ['PingFang SC', 'Roboto', 'sans-serif'],
-        // 这里就是调整了输入框高度的核心代码
         inputDecorationTheme: const InputDecorationTheme(
           border: OutlineInputBorder(),
           contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16), 
@@ -86,6 +82,11 @@ class MainLayout extends StatefulWidget {
 class _MainLayoutState extends State<MainLayout> {
   int _index = 0;
   final List<String> _titles = ['精灵蛋', '已售出', '售后订单', '黑名单', '配对库', '父母本库', '新手教学', '更新日志', '设置'];
+
+  // 这三个 Key 用来在切换页面时让列表重新拉取数据
+  final GlobalKey<EggListPageState> _eggKey0 = GlobalKey();
+  final GlobalKey<EggListPageState> _eggKey1 = GlobalKey();
+  final GlobalKey<EggListPageState> _eggKey2 = GlobalKey();
 
   @override
   Widget build(BuildContext context) {
@@ -121,22 +122,35 @@ class _MainLayoutState extends State<MainLayout> {
       ),
       body: IndexedStack(
         index: _index,
-        children: const [
-          EggListPage(viewType: '在库/预定'),
-          EggListPage(viewType: '已售出'),
-          EggListPage(viewType: '售后订单'),
-          BlacklistPage(),
-          PairingPage(),
-          ParentPage(),
-          ArticlePage(type: 'tutorial', title: '新手教学'),
-          ArticlePage(type: 'log', title: '更新日志'),
-          SettingsPage(),
+        children: [
+          EggListPage(key: _eggKey0, viewType: '在库/预定'),
+          EggListPage(key: _eggKey1, viewType: '已售出'),
+          EggListPage(key: _eggKey2, viewType: '售后订单'),
+          const BlacklistPage(),
+          const PairingPage(),
+          const ParentPage(),
+          const ArticlePage(type: 'tutorial', title: '新手教学'),
+          const ArticlePage(type: 'log', title: '更新日志'),
+          const SettingsPage(),
         ],
       ),
     );
   }
 
   Widget _navItem(int index, IconData icon, String title) {
-    return ListTile(leading: Icon(icon), title: Text(title), selected: _index == index, onTap: () { setState(() => _index = index); Navigator.pop(context); });
+    return ListTile(
+      leading: Icon(icon), 
+      title: Text(title), 
+      selected: _index == index, 
+      onTap: () { 
+        setState(() => _index = index); 
+        Navigator.pop(context); 
+        
+        // 切换页面时，强制刷新对应的数据
+        if (index == 0) _eggKey0.currentState?.loadData();
+        if (index == 1) _eggKey1.currentState?.loadData();
+        if (index == 2) _eggKey2.currentState?.loadData();
+      }
+    );
   }
 }
