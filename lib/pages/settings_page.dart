@@ -73,13 +73,13 @@ class _SettingsPageState extends State<SettingsPage> {
         ]),
         const SizedBox(height: 24),
         
-        // 修复：拆分成了标准写法
         ListTile(
           leading: const Icon(Icons.price_change),
           title: const Text('蛋重价格规则'),
           trailing: const Icon(Icons.chevron_right),
           onTap: () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const PriceRulesPage()));
+            // 修复：去掉了这里的 const
+            Navigator.push(context, MaterialPageRoute(builder: (_) => PriceRulesPage()));
           },
         ),
         
