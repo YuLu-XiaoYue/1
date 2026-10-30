@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import '../db/database.dart';
 
 class PriceRulesPage extends StatefulWidget {
@@ -64,13 +65,28 @@ class _PriceRulesPageState extends State<PriceRulesPage> {
     ));
   }
 
+  // 提取出统一的删除方法
+  void _deleteRule(int id) async {
+    final confirm = await showDialog<bool>(context: context, builder: (c) => AlertDialog(
+      title: const Text('删除规则？'), 
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('取消')), 
+        TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('确定删除', style: TextStyle(color: Colors.red)))
+      ],
+    ));
+    if (confirm == true) { 
+      final db = await AppDatabase.instance.db; 
+      await db.delete('price_rules', where: 'id=?', whereArgs: [id]); 
+      _loadRules(); 
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('蛋重价格规则')),
       body: Column(
         children: [
-          // 分类 Tab
           if (_categories.isNotEmpty)
             SizedBox(
               height: 50,
@@ -94,15 +110,19 @@ class _PriceRulesPageState extends State<PriceRulesPage> {
                 itemCount: _rules.length,
                 itemBuilder: (context, i) {
                   final r = _rules[i];
-                  return ListTile(
-                    title: Text('${r['min_weight']} kg ～ ${r['max_weight']} kg'),
-                    trailing: Text('${r['price']} 元', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
-                    onLongPress: () async {
-                      final confirm = await showDialog<bool>(context: context, builder: (c) => AlertDialog(
-                        title: const Text('删除规则？'), actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('取消')), TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('确定'))],
-                      ));
-                      if (confirm == true) { final db = await AppDatabase.instance.db; await db.delete('price_rules', where: 'id=?', whereArgs: [r['id']]); _loadRules(); }
-                    },
+                  return GestureDetector(
+                    onSecondaryTap: () => _deleteRule(r['id']), // 电脑端右键删除
+                    child: Slidable(
+                      key: ValueKey(r['id']),
+                      endActionPane: ActionPane(motion: const ScrollMotion(), children: [
+                        SlidableAction(onPressed: (_) => _deleteRule(r['id']), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')
+                      ]),
+                      child: ListTile(
+                        title: Text('${r['min_weight']} kg ～ ${r['max_weight']} kg'),
+                        trailing: Text('${r['price']} 元', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                        onLongPress: () => _deleteRule(r['id']), // 长按也支持
+                      ),
+                    ),
                   );
                 },
               ),
