@@ -89,6 +89,47 @@ class EggListPageState extends State<EggListPage> {
     if (confirm == true) { final db = await AppDatabase.instance.db; await db.delete('eggs', where: 'id = ?', whereArgs: [id]); _load(); }
   }
 
+  // 提取公共的图标层叠展示组件（含奖牌、绿窝）
+  Widget _buildEggIconWithBadges(Egg e) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        getLocalImage(e.iconPath, 'egg_icons', size: 44),
+        
+        // 右上角：奖牌图标（左右并排）
+        if (e.medals.isNotEmpty)
+          Positioned(
+            right: -8,
+            top: -8,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: e.medals.map((m) => Container(
+                margin: const EdgeInsets.only(left: 2),
+                decoration: const BoxDecoration(shape: BoxShape.circle), // 去掉了白底
+                child: Image.asset(
+                  'assets/medals/${medalIconMap[m] ?? m}.png', 
+                  width: 16, height: 16, 
+                  errorBuilder: (c,e,s) => const Icon(Icons.star, size: 16, color: Colors.amber)
+                ),
+              )).toList(),
+            ),
+          ),
+          
+        // 右下角：绿窝图标（去掉了白底）
+        if (e.nestType == '绿窝')
+          Positioned(
+            right: -6, 
+            bottom: -6, 
+            child: Image.asset(
+              'assets/nest_types/green_nest.png', 
+              width: 20, height: 20, 
+              errorBuilder: (c,e,s) => const Icon(Icons.eco, color: Colors.green, size: 16)
+            ),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     var visible = _eggs.where((e) {
@@ -195,7 +236,6 @@ class EggListPageState extends State<EggListPage> {
         final e = list[i];
         final statusColor = e.status == '在库' ? Colors.green : (e.status == '需售后' ? Colors.orange : Colors.grey);
         
-        // 判断是否显示“已售后”标签（排除在售后订单页面里的情况）
         String buyerText = e.buyerPlatformName ?? e.buyerGameName ?? '无';
         if (buyerText.isEmpty) buyerText = '无';
         String afterSalesTag = (e.isAfterSales && widget.viewType != '售后订单') ? ' | 已售后' : '';
@@ -206,19 +246,31 @@ class EggListPageState extends State<EggListPage> {
           child: Slidable(
             key: ValueKey(e.id),
             endActionPane: ActionPane(motion: const ScrollMotion(), children: [SlidableAction(onPressed: (_) => _deleteEgg(e.id!), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')]),
-            child: ListTile(
-              leading: Row(mainAxisSize: MainAxisSize.min, children: [
-                Text('${i + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-                const SizedBox(width: 12),
-                Stack(clipBehavior: Clip.none, children: [
-                  getLocalImage(e.iconPath, 'egg_icons', size: 40),
-                  if (e.nestType == '绿窝') Positioned(right: -6, bottom: -6, child: Container(decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle), padding: const EdgeInsets.all(2), child: Image.asset('assets/nest_types/green_nest.png', width: 16, height: 16, errorBuilder: (c,e,s) => const Icon(Icons.eco, color: Colors.green, size: 16)))),
-                ])
-              ]),
-              title: Text('${e.name}  ${e.weight}kg'),
-              subtitle: Text(subtitleText),
-              trailing: Text(e.status, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold)),
-              onTap: () async { await Navigator.push(context, MaterialPageRoute(builder: (_) => EggEditPage(egg: e))); _load(); },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  // 序号
+                  SizedBox(width: 24, child: Text('${i + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey))),
+                  const SizedBox(width: 8),
+                  // 带角标的图标
+                  _buildEggIconWithBadges(e),
+                  const SizedBox(width: 16), // 增加图标和文字的距离，防止拥挤
+                  // 文字部分
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('${e.name}  ${e.weight}kg', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                        const SizedBox(height: 4),
+                        Text(subtitleText, style: const TextStyle(fontSize: 13, color: Colors.grey)),
+                      ],
+                    ),
+                  ),
+                  // 状态
+                  Text(e.status, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold)),
+                ],
+              ),
             ),
           ),
         );
@@ -242,7 +294,6 @@ class EggListPageState extends State<EggListPage> {
               children: [
                 Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), color: Colors.grey.shade200, child: Text(letter, style: const TextStyle(fontWeight: FontWeight.bold))),
                 ...groups[letter]!.map((e) {
-                  // 判断是否显示“已售后”标签
                   String buyerText = e.buyerPlatformName ?? e.buyerGameName ?? '无';
                   if (buyerText.isEmpty) buyerText = '无';
                   String afterSalesTag = (e.isAfterSales && widget.viewType != '售后订单') ? ' | 已售后' : '';
@@ -253,12 +304,25 @@ class EggListPageState extends State<EggListPage> {
                     child: Slidable(
                       key: ValueKey(e.id),
                       endActionPane: ActionPane(motion: const ScrollMotion(), children: [SlidableAction(onPressed: (_) => _deleteEgg(e.id!), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')]),
-                      child: ListTile(
-                        leading: getLocalImage(e.iconPath, 'egg_icons', size: 40),
-                        title: Text('${e.name}  ${e.weight}kg'),
-                        subtitle: Text(subtitleText),
-                        trailing: Text(e.status, style: TextStyle(color: e.status == '需售后' ? Colors.orange : Colors.grey, fontWeight: FontWeight.bold)),
-                        onTap: () async { await Navigator.push(context, MaterialPageRoute(builder: (_) => EggEditPage(egg: e))); _load(); },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        child: Row(
+                          children: [
+                            _buildEggIconWithBadges(e),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('${e.name}  ${e.weight}kg', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                                  const SizedBox(height: 4),
+                                  Text(subtitleText, style: const TextStyle(fontSize: 13, color: Colors.grey)),
+                                ],
+                              ),
+                            ),
+                            Text(e.status, style: TextStyle(color: e.status == '需售后' ? Colors.orange : Colors.grey, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
                       ),
                     ),
                   );
@@ -500,8 +564,6 @@ class _EggEditPageState extends State<EggEditPage> {
     }
 
     final medals = <String>[]; if (_sizeMedal != null) medals.add(_sizeMedal!); if (_voiceMedal != null) medals.add(_voiceMedal!);
-    
-    // 状态变更为需售后时，打上售后标记
     if (_status == '需售后') _isAfterSales = true;
 
     final e = Egg(
