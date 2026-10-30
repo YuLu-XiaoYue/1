@@ -56,7 +56,7 @@ class _SettingsPageState extends State<SettingsPage> {
             pickerColor: initialColor, 
             onColorChanged: (color) {
               picked = color;
-              onColorChanged(color); // 实时更新到界面
+              onColorChanged(color); 
             }, 
             enableAlpha: false, 
             displayThumbColor: true, 
@@ -139,17 +139,53 @@ class _SettingsPageState extends State<SettingsPage> {
         ]),
 
         const SizedBox(height: 32),
-        ListTile(
-          leading: const Icon(Icons.price_change),
-          title: const Text('蛋重价格规则'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => PriceRulesPage()));
-          },
-        ),
+        const Text('功能设置', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
         
-        const Divider(),
-        const SizedBox(height: 20),
+        // 👇 修改后的蛋重价格规则卡片 👇
+        Card(
+          elevation: 2,
+          margin: EdgeInsets.zero,
+          color: Theme.of(context).colorScheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: Theme.of(context).colorScheme.primary.withOpacity(0.2), width: 1.5)
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PriceRulesPage())),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.price_change, color: Theme.of(context).colorScheme.primary, size: 28),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('蛋重价格规则', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        const SizedBox(height: 4),
+                        Text('根据不同精灵分类，设置蛋重区间自动计算标价', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey.shade400),
+                ],
+              ),
+            ),
+          ),
+        ),
+        // 👆 修改结束 👆
+
+        const Divider(height: 48),
         const Text('数据管理 (全量)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 16),
         ElevatedButton.icon(
@@ -192,6 +228,7 @@ class _SettingsPageState extends State<SettingsPage> {
           },
           icon: const Icon(Icons.text_snippet_outlined), label: const Text('仅导入教学与日志')
         ),
+        const SizedBox(height: 40),
       ],
     );
   }
