@@ -18,9 +18,7 @@ class PairingPageState extends State<PairingPage> {
   @override
   void initState() { super.initState(); _loadAccounts(); }
 
-  Future<void> loadData() async {
-    await _loadAccounts();
-  }
+  Future<void> loadData() async { await _loadAccounts(); }
 
   Future<void> _loadAccounts() async {
     final db = await AppDatabase.instance.db;
@@ -43,7 +41,6 @@ class PairingPageState extends State<PairingPage> {
       if (motherRows.isEmpty) continue;
       final fatherRows = await db.rawQuery('SELECT p.* FROM parents p JOIN pairing_fathers pf ON p.id = pf.father_id WHERE pf.pairing_id = ?', [p['id']]);
       
-      // 兼容旧数据(按父母ID匹配)和新数据(按pairing_id匹配)
       final eggStats = await db.rawQuery('''
         SELECT status, count(*) as c FROM eggs 
         WHERE pairing_id = ? OR (pairing_id IS NULL AND mother_id = ? AND father_id IN (SELECT father_id FROM pairing_fathers WHERE pairing_id = ?)) 
@@ -91,9 +88,10 @@ class PairingPageState extends State<PairingPage> {
                         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('第 ${i + 1} 组', style: const TextStyle(fontWeight: FontWeight.bold)), Text('在库: ${g['inStock']} / 已售出: ${g['sold']}', style: const TextStyle(fontSize: 12, color: Colors.grey))]),
                         const Divider(),
                         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Expanded(child: buildParentCard(g['mother'], true)),
+                          // 修复：传入 context
+                          Expanded(child: buildParentCard(context, g['mother'], true)),
                           const SizedBox(width: 8),
-                          Expanded(child: Column(children: (g['fathers'] as List<Parent>).map((f) => Padding(padding: const EdgeInsets.only(bottom: 8), child: buildParentCard(f, false))).toList())),
+                          Expanded(child: Column(children: (g['fathers'] as List<Parent>).map((f) => Padding(padding: const EdgeInsets.only(bottom: 8), child: buildParentCard(context, f, false))).toList())),
                         ]),
                       ]),
                     ),
@@ -152,10 +150,8 @@ class _PairingEditPageState extends State<PairingEditPage> {
             itemCount: _mothers.length,
             itemBuilder: (context, i) {
               final m = _mothers[i];
-              return Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: SizedBox(width: 200, child: buildParentCard(m, true, isSelected: _motherId == m.id, onTap: () => setState(() => _motherId = m.id))),
-              );
+              // 修复：传入 context
+              return Padding(padding: const EdgeInsets.only(right: 12), child: SizedBox(width: 200, child: buildParentCard(context, m, true, isSelected: _motherId == m.id, onTap: () => setState(() => _motherId = m.id))));
             },
           ),
         ),
@@ -169,10 +165,8 @@ class _PairingEditPageState extends State<PairingEditPage> {
             itemCount: _fathers.length,
             itemBuilder: (context, i) {
               final f = _fathers[i];
-              return Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: SizedBox(width: 200, child: buildParentCard(f, false, isSelected: _fatherIds.contains(f.id), onTap: () { setState(() { if (_fatherIds.contains(f.id)) { _fatherIds.remove(f.id); } else { _fatherIds.add(f.id!); } }); })),
-              );
+              // 修复：传入 context
+              return Padding(padding: const EdgeInsets.only(right: 12), child: SizedBox(width: 200, child: buildParentCard(context, f, false, isSelected: _fatherIds.contains(f.id), onTap: () { setState(() { if (_fatherIds.contains(f.id)) { _fatherIds.remove(f.id); } else { _fatherIds.add(f.id!); } }); })));
             },
           ),
         ),
