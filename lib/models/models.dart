@@ -48,15 +48,17 @@ class Egg {
   final List<String> medals;
   final String? nature;
   final String? account;
+  
+  final int? pairingId; // 新增：关联的配对组ID
   final int? fatherId;
   final int? motherId;
   final String? fatherNameSnapshot; 
   final String? motherNameSnapshot;
+  
   final String? iconPath;
   final double? price;
   final String status;
   
-  // 新的买家及备注字段
   final String? salePlatform;
   final String? buyerPlatformName;
   final String? buyerPlatformId;
@@ -72,7 +74,7 @@ class Egg {
 
   Egg({
     this.id, required this.name, required this.weight, this.medals = const [], this.nature, this.account, 
-    this.fatherId, this.motherId, this.fatherNameSnapshot, this.motherNameSnapshot, this.iconPath, this.price, 
+    this.pairingId, this.fatherId, this.motherId, this.fatherNameSnapshot, this.motherNameSnapshot, this.iconPath, this.price, 
     this.status = '在库', 
     this.salePlatform, this.buyerPlatformName, this.buyerPlatformId, this.buyerGameName, this.buyerGameId, this.note,
     this.createdAt, this.nestType = '普窝', this.obtainedDate = '', this.afterSalesPlan, this.isAfterSales = false,
@@ -80,7 +82,7 @@ class Egg {
 
   Map<String, Object?> toMap() => {
     if (id != null) 'id': id, 'name': name, 'weight': weight, 'medals': jsonEncode(medals),
-    'nature': nature, 'account': account, 'father_id': fatherId, 'mother_id': motherId,
+    'nature': nature, 'account': account, 'pairing_id': pairingId, 'father_id': fatherId, 'mother_id': motherId,
     'father_name_snapshot': fatherNameSnapshot, 'mother_name_snapshot': motherNameSnapshot,
     'icon_path': iconPath, 'price': price, 'status': status, 
     'sale_platform': salePlatform, 'buyer_platform_name': buyerPlatformName, 
@@ -93,7 +95,8 @@ class Egg {
   factory Egg.fromMap(Map<String, Object?> m) => Egg(
     id: m['id'] as int?, name: m['name'] as String, weight: (m['weight'] as num).toDouble(),
     medals: (jsonDecode(m['medals'] as String? ?? '[]') as List).cast<String>(),
-    nature: m['nature'] as String?, account: m['account'] as String?, fatherId: m['father_id'] as int?, motherId: m['mother_id'] as int?,
+    nature: m['nature'] as String?, account: m['account'] as String?, 
+    pairingId: m['pairing_id'] as int?, fatherId: m['father_id'] as int?, motherId: m['mother_id'] as int?,
     fatherNameSnapshot: m['father_name_snapshot'] as String?, motherNameSnapshot: m['mother_name_snapshot'] as String?,
     iconPath: m['icon_path'] as String?, price: (m['price'] as num?)?.toDouble(), status: m['status'] as String? ?? '在库',
     salePlatform: m['sale_platform'] as String?, 
