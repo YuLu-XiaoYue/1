@@ -281,34 +281,37 @@ class EggListPageState extends State<EggListPage> {
         String subtitleText = widget.viewType != '在库/预定' ? '买家: $buyerText$afterSalesTag' : '收取: ${e.obtainedDate} | 标价:${e.price ?? "-"}';
 
         return GestureDetector(
-          onTap: () async { 
-            await Navigator.push(context, MaterialPageRoute(builder: (_) => EggEditPage(egg: e))); 
-            _load(); 
-          }, // 修复：加上了点击事件
           onSecondaryTap: () => _deleteEgg(e.id!),
           child: Slidable(
             key: ValueKey(e.id),
             endActionPane: ActionPane(motion: const ScrollMotion(), children: [SlidableAction(onPressed: (_) => _deleteEgg(e.id!), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')]),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  SizedBox(width: 24, child: Text('${i + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey))),
-                  const SizedBox(width: 8),
-                  _buildEggIconWithBadges(e),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('${e.name}  ${e.weight}kg', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-                        const SizedBox(height: 4),
-                        Text(subtitleText, style: const TextStyle(fontSize: 13, color: Colors.grey)),
-                      ],
+            // 修复：将 InkWell 放在 Slidable 内部，接管 onTap
+            child: InkWell(
+              onTap: () async { 
+                await Navigator.push(context, MaterialPageRoute(builder: (_) => EggEditPage(egg: e))); 
+                _load(); 
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    SizedBox(width: 24, child: Text('${i + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey))),
+                    const SizedBox(width: 8),
+                    _buildEggIconWithBadges(e),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('${e.name}  ${e.weight}kg', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                          const SizedBox(height: 4),
+                          Text(subtitleText, style: const TextStyle(fontSize: 13, color: Colors.grey)),
+                        ],
+                      ),
                     ),
-                  ),
-                  Text(e.status, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold)),
-                ],
+                    Text(e.status, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold)),
+                  ],
+                ),
               ),
             ),
           ),
@@ -339,32 +342,35 @@ class EggListPageState extends State<EggListPage> {
                   String subtitleText = '买家: $buyerText$afterSalesTag';
 
                   return GestureDetector(
-                    onTap: () async { 
-                      await Navigator.push(context, MaterialPageRoute(builder: (_) => EggEditPage(egg: e))); 
-                      _load(); 
-                    }, // 修复：加上了点击事件
                     onSecondaryTap: () => _deleteEgg(e.id!),
                     child: Slidable(
                       key: ValueKey(e.id),
                       endActionPane: ActionPane(motion: const ScrollMotion(), children: [SlidableAction(onPressed: (_) => _deleteEgg(e.id!), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')]),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        child: Row(
-                          children: [
-                            _buildEggIconWithBadges(e),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('${e.name}  ${e.weight}kg', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-                                  const SizedBox(height: 4),
-                                  Text(subtitleText, style: const TextStyle(fontSize: 13, color: Colors.grey)),
-                                ],
+                      // 修复：将 InkWell 放在 Slidable 内部
+                      child: InkWell(
+                        onTap: () async { 
+                          await Navigator.push(context, MaterialPageRoute(builder: (_) => EggEditPage(egg: e))); 
+                          _load(); 
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          child: Row(
+                            children: [
+                              _buildEggIconWithBadges(e),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('${e.name}  ${e.weight}kg', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                                    const SizedBox(height: 4),
+                                    Text(subtitleText, style: const TextStyle(fontSize: 13, color: Colors.grey)),
+                                  ],
+                                ),
                               ),
-                            ),
-                            Text(e.status, style: TextStyle(color: e.status == '需售后' ? Colors.orange : Colors.grey, fontWeight: FontWeight.bold)),
-                          ],
+                              Text(e.status, style: TextStyle(color: e.status == '需售后' ? Colors.orange : Colors.grey, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
                         ),
                       ),
                     ),
