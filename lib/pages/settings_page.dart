@@ -85,11 +85,10 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  // 优化后的导出成功弹窗
   void _showExportSuccessDialog(String path) {
     showDialog(
       context: context,
-      barrierDismissible: false, // 核心修改：点击背景外部不会关闭弹窗
+      barrierDismissible: false, 
       builder: (c) => AlertDialog(
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -98,7 +97,7 @@ class _SettingsPageState extends State<SettingsPage> {
             IconButton(
               icon: const Icon(Icons.close, color: Colors.grey),
               padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(), // 让图标更紧凑
+              constraints: const BoxConstraints(), 
               onPressed: () => Navigator.pop(c),
               tooltip: '关闭',
             ),
@@ -108,7 +107,7 @@ class _SettingsPageState extends State<SettingsPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('备份文件已成功保存至以下路径：', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('文件已成功保存至以下路径：', style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),
@@ -232,8 +231,29 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
 
         const Divider(height: 48),
-        const Text('数据管理 (全量)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const Text('数据管理', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 16),
+
+        // ============ 新增：导出 Excel ============
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), 
+            padding: const EdgeInsets.symmetric(vertical: 12), 
+            backgroundColor: Colors.green.shade50, 
+            foregroundColor: Colors.green.shade800
+          ),
+          onPressed: () async { 
+            final path = await AppDatabase.instance.exportToExcel(); 
+            if (path != null && context.mounted) {
+              _showExportSuccessDialog(path);
+            }
+          }, 
+          icon: const Icon(Icons.table_chart), 
+          label: const Text('导出精灵蛋数据 (Excel 表格)')
+        ),
+        const SizedBox(height: 16),
+        // ==========================================
+
         ElevatedButton.icon(
           style: ElevatedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), padding: const EdgeInsets.symmetric(vertical: 12), backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest, foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant),
           onPressed: () async { 
