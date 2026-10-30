@@ -664,12 +664,10 @@ class _EggEditPageState extends State<EggEditPage> {
   }
 
   Future<void> _save() async {
-    // === 新增：名字为空提示 ===
     if (_nameCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请填写蛋名！')));
       return;
     }
-    // === 新增：重量为空提示（可选，防呆） ===
     if (_weightCtrl.text.trim().isEmpty || double.tryParse(_weightCtrl.text) == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请填写正确的重量！')));
       return;
@@ -861,17 +859,38 @@ class _EggEditPageState extends State<EggEditPage> {
 
         const SizedBox(height: 80),
       ]),
-      floatingActionButton: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-        FloatingActionButton(onPressed: _save, backgroundColor: Colors.green, foregroundColor: Colors.white, heroTag: 'save', child: const Icon(Icons.check)),
-        const SizedBox(width: 16),
-        FloatingActionButton(onPressed: () async {
-          final confirm = await showDialog<bool>(context: context, builder: (c) => AlertDialog(
-            title: const Text('放弃修改？'), content: const Text('当前填写的数据将丢失。'),
-            actions: [TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('确定')), TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('取消'))],
-          ));
-          if (confirm == true && context.mounted) Navigator.pop(context);
-        }, backgroundColor: Colors.red, foregroundColor: Colors.white, heroTag: 'cancel', child: const Icon(Icons.close)),
-      ]),
+      // 优化后的悬浮按钮：加上文字、改成圆角矩形、调整位置
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 24, right: 8),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            FloatingActionButton.extended(
+              onPressed: _save, 
+              backgroundColor: Colors.green, 
+              foregroundColor: Colors.white, 
+              heroTag: 'save', 
+              icon: const Icon(Icons.check),
+              label: const Text('保存'),
+            ),
+            const SizedBox(width: 16),
+            FloatingActionButton.extended(
+              onPressed: () async {
+                final confirm = await showDialog<bool>(context: context, builder: (c) => AlertDialog(
+                  title: const Text('放弃修改？'), content: const Text('当前填写的数据将丢失。'),
+                  actions: [TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('确定')), TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('取消'))],
+                ));
+                if (confirm == true && context.mounted) Navigator.pop(context);
+              }, 
+              backgroundColor: Colors.red, 
+              foregroundColor: Colors.white, 
+              heroTag: 'cancel', 
+              icon: const Icon(Icons.close),
+              label: const Text('取消'),
+            ),
+          ]
+        ),
+      ),
     );
   }
 }
