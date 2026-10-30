@@ -49,25 +49,55 @@ class _SettingsPageState extends State<SettingsPage> {
     Color picked = initialColor;
     await showDialog(
       context: context,
-      builder: (c) => AlertDialog(
-        title: Text('选择$title'),
-        content: SingleChildScrollView(
-          child: ColorPicker(
-            pickerColor: initialColor, 
-            onColorChanged: (color) {
-              picked = color;
-              onColorChanged(color); 
-            }, 
-            enableAlpha: false, 
-            displayThumbColor: true, 
-            paletteType: PaletteType.hsvWithHue
-          )
-        ),
-        actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('确定'))],
+      builder: (c) => StatefulBuilder(
+        // 使用 StatefulBuilder 实时刷新预览按钮的颜色
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: Text('选择$title'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ColorPicker(
+                    pickerColor: picked, 
+                    onColorChanged: (color) {
+                      picked = color;
+                      onColorChanged(color); // 实时更新外层 APP 的颜色
+                      setDialogState(() {}); // 实时刷新预览按钮
+                    }, 
+                    enableAlpha: false, 
+                    displayThumbColor: true, 
+                    paletteType: PaletteType.hsvWithHue
+                  ),
+                  const SizedBox(height: 24),
+                  const Text('实际按钮预览效果：', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  // 实时预览按钮
+                  Center(
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: picked, // 使用你正在拖动的颜色
+                        foregroundColor: picked.computeLuminance() > 0.5 ? Colors.black : Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))
+                      ),
+                      onPressed: () {}, // 这是个假按钮，只为预览
+                      icon: const Icon(Icons.add),
+                      label: const Text('新增精灵蛋'),
+                    ),
+                  )
+                ],
+              ),
+            ),
+            actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('确定'))],
+          );
+        }
       ),
     );
   }
 
+  // 修改为白底+阴影的风格
   Widget _buildColorButton(Color color, String label, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
@@ -75,12 +105,33 @@ class _SettingsPageState extends State<SettingsPage> {
       child: Container(
         height: 60,
         decoration: BoxDecoration(
-          color: color,
+          color: Colors.white, // 固定白底，不再融入背景
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: color.withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 4))],
+          border: Border.all(color: Colors.grey.shade300),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            )
+          ],
         ),
-        alignment: Alignment.center,
-        child: Text(label, style: TextStyle(color: color.computeLuminance() > 0.5 ? Colors.black : Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // 左侧显示当前颜色的小圆点
+            Container(
+              width: 24, height: 24,
+              decoration: BoxDecoration(
+                color: color, 
+                shape: BoxShape.circle, 
+                border: Border.all(color: Colors.grey.shade200)
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(label, style: const TextStyle(color: Colors.black87, fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
       ),
     );
   }
@@ -165,7 +216,7 @@ class _SettingsPageState extends State<SettingsPage> {
         const SizedBox(height: 16),
         Row(children: [
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(isDrawerFollowing ? '侧边栏颜色 (跟随主题)' : '侧边栏颜色 (独立)', style: const TextStyle(color: Colors.grey)), 
+            Text(isDrawerFollowing ? '侧边栏 (跟随主题)' : '侧边栏 (独立)', style: const TextStyle(color: Colors.grey)), 
             const SizedBox(height: 8), 
             _buildColorButton(drawerDisplayColor, '点击选择', () {
               _pickColor(drawerDisplayColor, '侧边栏颜色', (c) => _updateColor(c, 'drawer'));
@@ -234,7 +285,7 @@ class _SettingsPageState extends State<SettingsPage> {
         const Text('数据管理', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 16),
 
-        // ============ 新增：导出 Excel ============
+        // 导出 Excel 按钮
         ElevatedButton.icon(
           style: ElevatedButton.styleFrom(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), 
@@ -252,7 +303,6 @@ class _SettingsPageState extends State<SettingsPage> {
           label: const Text('导出精灵蛋数据 (Excel 表格)')
         ),
         const SizedBox(height: 16),
-        // ==========================================
 
         ElevatedButton.icon(
           style: ElevatedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), padding: const EdgeInsets.symmetric(vertical: 12), backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest, foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant),
