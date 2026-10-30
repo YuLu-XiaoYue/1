@@ -3,9 +3,17 @@ import 'dart:convert';
 class Account {
   final int? id;
   final String name;
-  Account({this.id, required this.name});
-  Map<String, Object?> toMap() => {'id': id, 'name': name};
-  factory Account.fromMap(Map<String, Object?> m) => Account(id: m['id'] as int?, name: m['name'] as String);
+  final String? accountId; // 新增字段，用于存长串 ID
+
+  Account({this.id, required this.name, this.accountId});
+
+  Map<String, Object?> toMap() => {'id': id, 'name': name, 'account_id': accountId};
+  
+  factory Account.fromMap(Map<String, Object?> m) => Account(
+    id: m['id'] as int?, 
+    name: m['name'] as String,
+    accountId: m['account_id'] as String?,
+  );
 }
 
 class Parent {
@@ -48,24 +56,20 @@ class Egg {
   final List<String> medals;
   final String? nature;
   final String? account;
-  
-  final int? pairingId; // 新增：关联的配对组ID
+  final int? pairingId; 
   final int? fatherId;
   final int? motherId;
   final String? fatherNameSnapshot; 
   final String? motherNameSnapshot;
-  
   final String? iconPath;
   final double? price;
   final String status;
-  
   final String? salePlatform;
   final String? buyerPlatformName;
   final String? buyerPlatformId;
   final String? buyerGameName;
   final String? buyerGameId;
   final String? note;
-  
   final int? createdAt;
   final String nestType; 
   final String obtainedDate;
@@ -75,8 +79,7 @@ class Egg {
   Egg({
     this.id, required this.name, required this.weight, this.medals = const [], this.nature, this.account, 
     this.pairingId, this.fatherId, this.motherId, this.fatherNameSnapshot, this.motherNameSnapshot, this.iconPath, this.price, 
-    this.status = '在库', 
-    this.salePlatform, this.buyerPlatformName, this.buyerPlatformId, this.buyerGameName, this.buyerGameId, this.note,
+    this.status = '在库', this.salePlatform, this.buyerPlatformName, this.buyerPlatformId, this.buyerGameName, this.buyerGameId, this.note,
     this.createdAt, this.nestType = '普窝', this.obtainedDate = '', this.afterSalesPlan, this.isAfterSales = false,
   });
 
