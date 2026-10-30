@@ -22,7 +22,7 @@ class EggListPage extends StatefulWidget {
   final String viewType;
   const EggListPage({super.key, required this.viewType});
   @override
-  State<EggListPage> createState() => EggListPageState(); // 改为了公开的 State
+  State<EggListPage> createState() => EggListPageState();
 }
 
 class EggListPageState extends State<EggListPage> {
@@ -42,7 +42,6 @@ class EggListPageState extends State<EggListPage> {
   @override
   void initState() { super.initState(); _loadCategories(); _load(); }
 
-  // 暴露给外部的刷新方法
   Future<void> loadData() async {
     await _load();
   }
@@ -107,9 +106,12 @@ class EggListPageState extends State<EggListPage> {
     if (_sortType == '蛋重高到低') visible.sort((a, b) => b.weight.compareTo(a.weight));
     if (_sortType == '蛋重低到高') visible.sort((a, b) => a.weight.compareTo(b.weight));
 
+    // 判断是否启用字母分组（仅在已售/售后，且按时间排序时启用）
+    bool useAlphabetGroup = (widget.viewType != '在库/预定') && (_sortType == '时间由近到远' || _sortType == '时间由远到近');
+
     Map<String, List<Egg>> groupedEggs = {};
     List<String> alphabet = [];
-    if (widget.viewType != '在库/预定') {
+    if (useAlphabetGroup) {
       for (var e in visible) {
         String buyer = e.buyerPlatformName ?? e.buyerGameName ?? '无';
         String firstLetter = 'Z';
@@ -175,7 +177,8 @@ class EggListPageState extends State<EggListPage> {
             ),
           ),
           Expanded(
-            child: widget.viewType == '在库/预定' ? _buildNormalList(visible) : _buildAlphabetList(groupedEggs, alphabet),
+            // 如果开启了字母分组就渲染分组列表，否则（如按蛋重排序）渲染平铺列表
+            child: useAlphabetGroup ? _buildAlphabetList(groupedEggs, alphabet) : _buildNormalList(visible),
           ),
         ],
       ),
@@ -191,6 +194,9 @@ class EggListPageState extends State<EggListPage> {
       itemCount: list.length,
       itemBuilder: (context, i) {
         final e = list[i];
+        // 根据状态改变颜色
+        final statusColor = e.status == '在库' ? Colors.green : (e.status == '需售后' ? Colors.orange : Colors.grey);
+        
         return GestureDetector(
           onSecondaryTap: () => _deleteEgg(e.id!),
           child: Slidable(
@@ -206,8 +212,10 @@ class EggListPageState extends State<EggListPage> {
                 ])
               ]),
               title: Text('${e.name}  ${e.weight}kg'),
-              subtitle: Text('收取: ${e.obtainedDate} | 标价:${e.price ?? "-"}'),
-              trailing: Text(e.status, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+              subtitle: Text(widget.viewType != '在库/预定' 
+                  ? '买家: ${e.buyerPlatformName ?? e.buyerGameName ?? "无"} | ${e.isAfterSales ? "已售后" : ""}' 
+                  : '收取: ${e.obtainedDate} | 标价:${e.price ?? "-"}'),
+              trailing: Text(e.status, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold)),
               onTap: () async { await Navigator.push(context, MaterialPageRoute(builder: (_) => EggEditPage(egg: e))); _load(); },
             ),
           ),
