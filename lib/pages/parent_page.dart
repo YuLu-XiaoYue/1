@@ -20,7 +20,6 @@ Widget _buildBloodlineChip(String bloodline, bool isSelected) {
   ]);
 }
 
-// 修复：加上了 BuildContext context
 Widget buildParentCard(BuildContext context, Parent p, bool isMother, {bool isSelected = false, VoidCallback? onTap}) {
   return InkWell(
     onTap: onTap,
@@ -188,7 +187,7 @@ class ParentPageState extends State<ParentPage> {
                       key: ValueKey(p.id),
                       endActionPane: ActionPane(motion: const ScrollMotion(), children: [SlidableAction(onPressed: (_) => _deleteParent(p), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')]),
                       child: buildParentCard(
-                        context, // 传入 context
+                        context,
                         p, p.gender == '母本',
                         onTap: () async {
                           await Navigator.push(context, MaterialPageRoute(builder: (_) => ParentEditPage(parent: p, account: _currentAccount)));
@@ -240,13 +239,6 @@ class _ParentEditPageState extends State<ParentEditPage> {
     if (mounted) Navigator.pop(context);
   }
 
-  void _showPickerSheet(List<String> items, String current, Function(String) onSelect) {
-    showModalBottomSheet(context: context, builder: (c) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
-      const Padding(padding: EdgeInsets.all(16), child: Text('请选择', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-      ...items.map((e) => ListTile(title: Text(e, textAlign: TextAlign.center), trailing: current == e ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary) : null, onTap: () { onSelect(e); Navigator.pop(c); })),
-    ])));
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -257,20 +249,47 @@ class _ParentEditPageState extends State<ParentEditPage> {
           const SizedBox(width: 16),
           ElevatedButton.icon(onPressed: () async { final res = await FilePicker.platform.pickFiles(type: FileType.image); if (res != null && res.files.single.path != null) { final saved = await copyImageToLocal(res.files.single.path!, 'parent_icons'); setState(() => _iconPath = saved); } }, icon: const Icon(Icons.image), label: const Text('选图')),
         ]),
+        const SizedBox(height: 16),
         TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: '精灵名字')),
+        
+        const SizedBox(height: 16),
         Row(children: [
-          Expanded(child: InkWell(onTap: () => _showPickerSheet(['母本', '父本'], _gender, (v) => setState(() => _gender = v)), child: InputDecorator(decoration: const InputDecoration(labelText: '性别'), child: Text(_gender)))),
+          Expanded(
+            child: DropdownButtonFormField<String>(
+              value: _gender,
+              isExpanded: true,
+              menuMaxHeight: 250,
+              decoration: const InputDecoration(labelText: '性别'),
+              items: ['母本', '父本'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+              onChanged: (v) => setState(() => _gender = v!),
+            )
+          ),
           const SizedBox(width: 16),
-          Expanded(child: InkWell(onTap: () => _showPickerSheet(appearanceTypes, _appearance, (v) => setState(() => _appearance = v)), child: InputDecorator(decoration: const InputDecoration(labelText: '外观'), child: Text(_appearance)))),
+          Expanded(
+            child: DropdownButtonFormField<String>(
+              value: _appearance,
+              isExpanded: true,
+              menuMaxHeight: 250,
+              decoration: const InputDecoration(labelText: '外观'),
+              items: appearanceTypes.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+              onChanged: (v) => setState(() => _appearance = v!),
+            )
+          ),
         ]),
+        
+        const SizedBox(height: 16),
         TextField(controller: _natureCtrl, decoration: const InputDecoration(labelText: '性格')),
+        
+        const SizedBox(height: 16),
         Row(children: [
           Expanded(child: TextField(controller: _heightCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '身高(m)'))), const SizedBox(width: 8),
           Expanded(child: TextField(controller: _weightCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '体重(kg)'))), const SizedBox(width: 8),
           Expanded(child: TextField(controller: _voiceCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '声音(dB)'))),
         ]),
-        const SizedBox(height: 16),
+        
+        const SizedBox(height: 24),
         const Text('血脉（单选）', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
         Wrap(spacing: 8, children: bloodlines.map((b) => ChoiceChip(label: _buildBloodlineChip(b, _bloodline == b), selected: _bloodline == b, onSelected: (v) => setState(() => _bloodline = v ? b : null))).toList()),
       ]),
       floatingActionButton: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
