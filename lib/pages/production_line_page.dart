@@ -5,7 +5,9 @@ import '../db/database.dart';
 import '../models/models.dart';
 
 class ProductionLinePage extends StatefulWidget {
-  const ProductionLinePage({super.key});
+  final Color cardColor; // 接收外部传入的卡片颜色
+  const ProductionLinePage({super.key, this.cardColor = Colors.white});
+  
   @override
   State<ProductionLinePage> createState() => ProductionLinePageState();
 }
@@ -82,6 +84,7 @@ class ProductionLinePageState extends State<ProductionLinePage> {
                   },
                   child: Card(
                     elevation: 3,
+                    color: widget.cardColor, // 应用你在设置里选的卡片底色
                     margin: const EdgeInsets.only(bottom: 16),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     child: Padding(
@@ -410,8 +413,12 @@ class _ProductionLineDetailPageState extends State<ProductionLineDetailPage> {
                   onSecondaryTap: () => _deleteRule(r.id!),
                   child: Slidable(
                     key: ValueKey(r.id),
-                    enabled: _isEditing, // 只有编辑模式才允许滑出删除
-                    endActionPane: ActionPane(motion: const ScrollMotion(), children: [SlidableAction(onPressed: (_) => _deleteRule(r.id!), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')]),
+                    enabled: _isEditing, 
+                    endActionPane: ActionPane(
+                      motion: const ScrollMotion(), 
+                      extentRatio: 0.25,
+                      children: [SlidableAction(onPressed: (_) => _deleteRule(r.id!), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')]
+                    ),
                     child: ListTile(
                       leading: const Icon(Icons.balance, color: Colors.grey),
                       title: Text('${r.minWeight} kg ~ ${r.maxWeight} kg'),
@@ -426,7 +433,7 @@ class _ProductionLineDetailPageState extends State<ProductionLineDetailPage> {
         ],
       ),
       floatingActionButton: _isEditing ? Padding(
-        padding: const EdgeInsets.only(bottom: 80, right: 8), // 避开底部的保存按钮
+        padding: const EdgeInsets.only(bottom: 80, right: 8),
         child: FloatingActionButton.extended(onPressed: _showAddRuleDialog, icon: const Icon(Icons.add), label: const Text('添加新区间')),
       ) : null,
       bottomNavigationBar: _isEditing ? Padding(
