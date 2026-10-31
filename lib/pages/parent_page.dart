@@ -4,7 +4,74 @@ import 'package:file_picker/file_picker.dart';
 import '../db/database.dart';
 import '../models/models.dart';
 
-// ... buildParentCard 保持原样 ...
+Widget _buildAppearanceIcon(String appearance, {double size = 16}) {
+  if (appearance == '异色') return Image.asset('assets/special_icons/shiny.png', width: size, height: size, errorBuilder: (c,e,s) => Icon(Icons.auto_awesome, size: size, color: Colors.amber));
+  if (appearance == '炫彩') return Image.asset('assets/special_icons/colorful.png', width: size, height: size, errorBuilder: (c,e,s) => Icon(Icons.star, size: size, color: Colors.blueAccent));
+  if (appearance == '异色炫彩') return Image.asset('assets/special_icons/shiny_colorful.png', width: size, height: size, errorBuilder: (c,e,s) => Icon(Icons.color_lens, size: size, color: Colors.purpleAccent));
+  if (appearance == '黑白') return Image.asset('assets/special_icons/monochrome.png', width: size, height: size, errorBuilder: (c,e,s) => Icon(Icons.contrast, size: size, color: Colors.grey));
+  if (appearance == '异色黑白') return Image.asset('assets/special_icons/shiny_monochrome.png', width: size, height: size, errorBuilder: (c,e,s) => Icon(Icons.brightness_4, size: size, color: Colors.black87));
+  return const SizedBox.shrink();
+}
+
+Widget _buildBloodlineChip(String bloodline, bool isSelected) {
+  return Row(mainAxisSize: MainAxisSize.min, children: [
+    Image.asset('assets/bloodlines/$bloodline.png', width: 16, height: 16, errorBuilder: (c,e,s) => const Icon(Icons.circle, size: 16, color: Colors.grey)),
+    const SizedBox(width: 4), Text(bloodline),
+  ]);
+}
+
+// 公用卡片组件
+Widget buildParentCard(BuildContext context, Parent p, bool isMother, {bool isSelected = false, VoidCallback? onTap}) {
+  return InkWell(
+    onTap: onTap,
+    child: Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isSelected ? Theme.of(context).colorScheme.primary.withOpacity(0.1) : Colors.white,
+        border: Border.all(color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey.shade200, width: isSelected ? 2 : 1),
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0,2))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              getLocalImage(p.iconPath, 'parent_icons', size: 40, fallbackIcon: Icons.face),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          decoration: BoxDecoration(color: isMother ? Colors.pink.shade50 : Colors.blue.shade50, borderRadius: BorderRadius.circular(4)),
+                          child: Text(isMother ? '♀' : '♂', style: TextStyle(color: isMother ? Colors.pink : Colors.blue, fontWeight: FontWeight.bold)),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(child: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15), overflow: TextOverflow.ellipsis)),
+                        if (p.appearance != '普通') Padding(padding: const EdgeInsets.only(right: 4), child: _buildAppearanceIcon(p.appearance)),
+                        if (p.bloodline != null) Image.asset('assets/bloodlines/${p.bloodline}.png', width: 16, height: 16, errorBuilder: (c,e,s) => Text(p.bloodline![0], style: const TextStyle(fontSize: 10, color: Colors.purple))),
+                      ],
+                    ),
+                    Text(p.nature ?? "-", style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const Divider(height: 16),
+          Text('身高: ${p.height ?? "-"}m', style: const TextStyle(fontSize: 12, color: Colors.black87)),
+          Text('体重: ${p.weight ?? "-"}kg', style: const TextStyle(fontSize: 12, color: Colors.black87)),
+          Text('声音: ${p.voice ?? "-"}dB', style: const TextStyle(fontSize: 12, color: Colors.black87)),
+        ],
+      ),
+    ),
+  );
+}
 
 class ParentPage extends StatefulWidget {
   const ParentPage({super.key});
@@ -65,7 +132,6 @@ class ParentPageState extends State<ParentPage> {
     ));
   }
 
-  // 修改或删除账号
   void _manageAccount(Account acc) {
     final nameCtrl = TextEditingController(text: acc.name);
     final idCtrl = TextEditingController(text: acc.accountId ?? '');
@@ -82,7 +148,6 @@ class ParentPageState extends State<ParentPage> {
         actions: [
           TextButton(
             onPressed: () async {
-              // 删除逻辑
               final confirm = await showDialog<bool>(context: context, builder: (c2) => AlertDialog(
                 title: Text('危险操作'), 
                 content: Text('确定删除账号 "${acc.name}" 吗？\n该账号下的所有父母本、配对组、产线都将被彻底清除！在库的蛋会解除关联，已售出的保留历史。'), 
@@ -95,10 +160,8 @@ class ParentPageState extends State<ParentPage> {
               if (confirm == true) {
                 final db = await AppDatabase.instance.db;
                 await db.transaction((txn) async {
-                  // 1. 解除在库/预定蛋的关联
                   final eggs = await txn.query('eggs', where: 'account = ? AND status != ?', whereArgs: [acc.name, '已售出']);
                   for (var e in eggs) { await txn.update('eggs', {'father_id': null, 'mother_id': null}, where: 'id = ?', whereArgs: [e['id']]); }
-                  // 2. 清理父母本、配对组、产线
                   await txn.delete('parents', where: 'account = ?', whereArgs: [acc.name]);
                   await txn.delete('pairings', where: 'account = ?', whereArgs: [acc.name]);
                   await txn.delete('production_lines', where: 'account_name = ?', whereArgs: [acc.name]);
@@ -114,7 +177,6 @@ class ParentPageState extends State<ParentPage> {
           TextButton(onPressed: () => Navigator.pop(c), child: const Text('取消')),
           ElevatedButton(
             onPressed: () async {
-              // 保存修改
               if (nameCtrl.text.isEmpty) return;
               final db = await AppDatabase.instance.db;
               final oldName = acc.name;
@@ -123,7 +185,6 @@ class ParentPageState extends State<ParentPage> {
               await db.transaction((txn) async {
                 await txn.update('accounts', {'name': newName, 'account_id': idCtrl.text}, where: 'id = ?', whereArgs: [acc.id]);
                 if (oldName != newName) {
-                   // 级联更新名字
                    await txn.update('parents', {'account': newName}, where: 'account = ?', whereArgs: [oldName]);
                    await txn.update('pairings', {'account': newName}, where: 'account = ?', whereArgs: [oldName]);
                    await txn.update('production_lines', {'account_name': newName}, where: 'account_name = ?', whereArgs: [oldName]);
@@ -224,6 +285,98 @@ class ParentPageState extends State<ParentPage> {
           child: const Icon(Icons.add)
         ),
       ),
+    );
+  }
+}
+
+class ParentEditPage extends StatefulWidget {
+  final Parent? parent; final String account;
+  const ParentEditPage({super.key, this.parent, required this.account});
+  @override
+  State<ParentEditPage> createState() => _ParentEditPageState();
+}
+
+class _ParentEditPageState extends State<ParentEditPage> {
+  final _nameCtrl = TextEditingController(), _natureCtrl = TextEditingController(), _heightCtrl = TextEditingController(), _weightCtrl = TextEditingController(), _voiceCtrl = TextEditingController();
+  String _gender = '母本'; String? _bloodline, _iconPath; String _appearance = '普通';
+  String? _tempSelectedImagePath;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.parent != null) {
+      final p = widget.parent!; _nameCtrl.text = p.name; _natureCtrl.text = p.nature ?? ''; _heightCtrl.text = p.height?.toString() ?? ''; _weightCtrl.text = p.weight?.toString() ?? ''; _voiceCtrl.text = p.voice?.toString() ?? ''; _gender = p.gender; _bloodline = p.bloodline; _iconPath = p.iconPath; _appearance = p.appearance;
+    }
+  }
+
+  Future<void> _save() async {
+    if (_nameCtrl.text.isEmpty) return;
+    final db = await AppDatabase.instance.db;
+    
+    String? finalPath = await syncParentImage(_nameCtrl.text, _tempSelectedImagePath, widget.parent?.iconPath);
+
+    final p = Parent(id: widget.parent?.id, name: _nameCtrl.text, gender: _gender, account: widget.account, nature: _natureCtrl.text, height: double.tryParse(_heightCtrl.text), weight: double.tryParse(_weightCtrl.text), voice: double.tryParse(_voiceCtrl.text), bloodline: _bloodline, iconPath: finalPath, appearance: _appearance);
+    if (p.id == null) { await db.insert('parents', p.toMap()); } else { await db.update('parents', p.toMap(), where: 'id=?', whereArgs: [p.id]); }
+    if (mounted) Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(widget.parent == null ? '新增父母本' : '编辑父母本')),
+      body: ListView(padding: const EdgeInsets.all(16), children: [
+        Row(children: [
+          _tempSelectedImagePath != null 
+            ? ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.file(File(_tempSelectedImagePath!), width: 60, height: 60, fit: BoxFit.cover))
+            : getLocalImage(_iconPath, 'parent_icons', size: 60, fallbackIcon: Icons.face),
+          const SizedBox(width: 16),
+          ElevatedButton.icon(onPressed: () async { final res = await FilePicker.platform.pickFiles(type: FileType.image); if (res != null && res.files.single.path != null) setState(() => _tempSelectedImagePath = res.files.single.path!); }, icon: const Icon(Icons.image), label: const Text('选图')),
+        ]),
+        const SizedBox(height: 16),
+        TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: '精灵名字')),
+        
+        const SizedBox(height: 16),
+        Row(children: [
+          Expanded(
+            child: DropdownButtonFormField<String>(
+              value: _gender, isExpanded: true, menuMaxHeight: 250, decoration: const InputDecoration(labelText: '性别'),
+              items: ['母本', '父本'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+              onChanged: (v) => setState(() => _gender = v!),
+            )
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: DropdownButtonFormField<String>(
+              value: _appearance, isExpanded: true, menuMaxHeight: 250, decoration: const InputDecoration(labelText: '外观'),
+              items: appearanceTypes.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+              onChanged: (v) => setState(() => _appearance = v!),
+            )
+          ),
+        ]),
+        
+        const SizedBox(height: 16),
+        TextField(controller: _natureCtrl, decoration: const InputDecoration(labelText: '性格')),
+        
+        const SizedBox(height: 16),
+        Row(children: [
+          Expanded(child: TextField(controller: _heightCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '身高(m)'))), const SizedBox(width: 8),
+          Expanded(child: TextField(controller: _weightCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '体重(kg)'))), const SizedBox(width: 8),
+          Expanded(child: TextField(controller: _voiceCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '声音(dB)'))),
+        ]),
+        
+        const SizedBox(height: 24),
+        const Text('血脉（单选）', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Wrap(spacing: 8, children: bloodlines.map((b) => ChoiceChip(label: _buildBloodlineChip(b, _bloodline == b), selected: _bloodline == b, onSelected: (v) => setState(() => _bloodline = v ? b : null))).toList()),
+      ]),
+      floatingActionButton: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+        FloatingActionButton(onPressed: _save, backgroundColor: Colors.green, foregroundColor: Colors.white, heroTag: 'save', child: const Icon(Icons.check)),
+        const SizedBox(width: 16),
+        FloatingActionButton(onPressed: () async {
+          final confirm = await showDialog<bool>(context: context, builder: (c) => AlertDialog(title: const Text('放弃修改？'), actions: [TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('确定')), TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('取消'))]));
+          if (confirm == true && context.mounted) Navigator.pop(context);
+        }, backgroundColor: Colors.red, foregroundColor: Colors.white, heroTag: 'cancel', child: const Icon(Icons.close)),
+      ]),
     );
   }
 }
