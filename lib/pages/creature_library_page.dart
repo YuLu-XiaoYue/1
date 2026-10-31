@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
-import 'package:file_picker/file_picker.dart'; // 补上的 import
-import 'dart:io'; // 补上的 import
+import 'package:file_picker/file_picker.dart';
+import 'dart:io';
 import 'dart:convert';
 import '../db/database.dart';
 import '../models/models.dart';
@@ -139,9 +139,11 @@ class _CreatureEditPageState extends State<CreatureEditPage> {
   }
 
   void _showGroupSelector() {
+    // 核心修复：把 selected 移到外面，防止每次刷新被重置
+    List<String> selected = List.from(_eggGroups); 
+    
     showDialog(context: context, builder: (c) => StatefulBuilder(
       builder: (context, setDialogState) {
-        List<String> selected = List.from(_eggGroups);
         void toggle(String g) {
           setDialogState(() {
             if (selected.contains(g)) selected.remove(g); 
