@@ -5,7 +5,6 @@ import 'package:lpinyin/lpinyin.dart';
 import 'dart:io';
 import '../db/database.dart';
 import '../models/models.dart';
-import 'parent_page.dart'; 
 
 const Map<String, String> medalIconMap = {
   '大块头': 'big_body', '满重': 'full_weight', '小不点': 'tiny', '满轻': 'full_light',
@@ -37,7 +36,7 @@ class EggListPageState extends State<EggListPage> {
   final List<String> _sortTypes = ['时间由近到远', '时间由远到近', '蛋重高到低', '蛋重低到高'];
   
   // 筛选条件
-  Set<String> _filterTags = {}; // 奖牌与绿窝
+  Set<String> _filterTags = {}; 
   bool _filterMatchAll = false;
   String _filterAccount = '全部';
   String _filterLine = '全部';
@@ -96,7 +95,6 @@ class EggListPageState extends State<EggListPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // 账号筛选
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: DropdownButtonFormField<String>(
@@ -111,7 +109,6 @@ class EggListPageState extends State<EggListPage> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    // 产线筛选
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: DropdownButtonFormField<String>(
@@ -126,7 +123,6 @@ class EggListPageState extends State<EggListPage> {
                       ),
                     ),
                     const Divider(height: 32),
-                    // 组合条件
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Row(
@@ -154,7 +150,6 @@ class EggListPageState extends State<EggListPage> {
                         ],
                       ),
                     ),
-                    // 绿窝
                     CheckboxListTile(
                       value: tempTags.contains('绿窝'),
                       title: Row(children: [
@@ -165,7 +160,6 @@ class EggListPageState extends State<EggListPage> {
                       controlAffinity: ListTileControlAffinity.trailing,
                     ),
                     const Divider(),
-                    // 奖牌
                     ...sizeMedals.map((m) => CheckboxListTile(
                       value: tempTags.contains(m),
                       title: Row(children: [
@@ -227,12 +221,12 @@ class EggListPageState extends State<EggListPage> {
               if (hasMedals)
                 Wrap(
                   spacing: 2,
-                  children: e.medals.map((m) => Image.asset('assets/medals/${medalIconMap[m] ?? m}.png', width: 16, height: 16)).toList(),
+                  children: e.medals.map((m) => Image.asset('assets/medals/${medalIconMap[m] ?? m}.png', width: 16, height: 16, errorBuilder: (c,e,s) => const Icon(Icons.star, size: 16, color: Colors.amber))).toList(),
                 ),
               if (hasGreenNest)
                 Padding(
                   padding: EdgeInsets.only(top: hasMedals ? 4 : 0),
-                  child: Image.asset('assets/nest_types/green_nest.png', width: 16, height: 16),
+                  child: Image.asset('assets/nest_types/green_nest.png', width: 16, height: 16, errorBuilder: (c,e,s) => const Icon(Icons.eco, color: Colors.green, size: 16)),
                 ),
             ],
           ),
@@ -282,7 +276,6 @@ class EggListPageState extends State<EggListPage> {
     return Scaffold(
       body: Column(
         children: [
-          // 搜索和筛选栏
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
@@ -308,7 +301,6 @@ class EggListPageState extends State<EggListPage> {
     );
   }
 
-  // ... (省略 _buildNormalList 和 _buildAlphabetList 的代码，与之前保持一致即可) ...
   Widget _buildNormalList(List<Egg> list) {
     if (list.isEmpty) return const Center(child: Text('暂无数据'));
     return ListView.builder(
@@ -359,7 +351,7 @@ class EggListPageState extends State<EggListPage> {
       },
     );
   }
-  
+
   Widget _buildAlphabetList(Map<String, List<Egg>> groups, List<String> alphabet) {
     if (groups.isEmpty) return const Center(child: Text('暂无数据'));
     final Map<String, GlobalKey> sectionKeys = { for (var letter in alphabet) letter: GlobalKey() };
@@ -441,4 +433,250 @@ class EggListPageState extends State<EggListPage> {
   }
 }
 
-// EggEditPage 保持原样，不用改。由于篇幅限制，请直接保留你上次替换的 EggEditPage 即可。
+// ================= 录入/编辑精灵蛋 =================
+class EggEditPage extends StatefulWidget {
+  final Egg? egg;
+  const EggEditPage({super.key, this.egg});
+  @override
+  State<EggEditPage> createState() => _EggEditPageState();
+}
+
+class _EggEditPageState extends State<EggEditPage> {
+  final _nameCtrl = TextEditingController(), _weightCtrl = TextEditingController(), _natureCtrl = TextEditingController(), _priceCtrl = TextEditingController();
+  final _salePlatformCtrl = TextEditingController(), _buyerPlatNameCtrl = TextEditingController(), _buyerPlatIdCtrl = TextEditingController(), _buyerGameNameCtrl = TextEditingController(), _buyerGameIdCtrl = TextEditingController();
+  final _noteCtrl = TextEditingController(), _afterSalesCtrl = TextEditingController();
+  
+  String _status = '在库', _nestType = '普窝', _obtainedDate = DateTime.now().toString().substring(0, 10);
+  String? _sizeMedal, _voiceMedal, _iconPath, _selectedAccount;
+  String? _tempSelectedImagePath; 
+  
+  int? _pairingId;
+  int? _lineId; 
+  
+  List<Account> _accounts = [];
+  List<ProductionLine> _lines = [];
+  bool _isOutOfRange = false;
+  bool _isParentLocked = false; 
+  bool _isAfterSales = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.egg != null) {
+      final e = widget.egg!;
+      _nameCtrl.text = e.name; _weightCtrl.text = e.weight.toString(); _natureCtrl.text = e.nature ?? ''; _priceCtrl.text = e.price?.toString() ?? '';
+      _salePlatformCtrl.text = e.salePlatform ?? ''; _buyerPlatNameCtrl.text = e.buyerPlatformName ?? '';
+      _buyerPlatIdCtrl.text = e.buyerPlatformId ?? ''; _buyerGameNameCtrl.text = e.buyerGameName ?? '';
+      _buyerGameIdCtrl.text = e.buyerGameId ?? ''; _noteCtrl.text = e.note ?? ''; _afterSalesCtrl.text = e.afterSalesPlan ?? '';
+      _status = e.status; _nestType = e.nestType; _obtainedDate = e.obtainedDate; _iconPath = e.iconPath; _selectedAccount = e.account; _pairingId = e.pairingId; _isAfterSales = e.isAfterSales;
+      _isParentLocked = true;
+      for (var m in e.medals) { if (sizeMedals.contains(m)) _sizeMedal = m; if (voiceMedals.contains(m)) _voiceMedal = m; }
+    }
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    final db = await AppDatabase.instance.db;
+    final accRows = await db.query('accounts');
+    final lineRows = await db.query('production_lines');
+    setState(() {
+      _accounts = accRows.map(Account.fromMap).toList();
+      _lines = lineRows.map(ProductionLine.fromMap).toList();
+      if (_selectedAccount == null && _accounts.isNotEmpty) _selectedAccount = _accounts.first.name;
+    });
+  }
+
+  Future<void> _autoFillPrice(String weightStr) async {
+    final weight = double.tryParse(weightStr);
+    if (weight == null || _lineId == null) { setState(() => _isOutOfRange = false); return; }
+    final db = await AppDatabase.instance.db;
+    // 查产线绑定的区间表
+    final rules = await db.query('line_price_rules', where: 'line_id = ?', whereArgs: [_lineId]);
+    for (var r in rules) {
+      if (weight >= (r['min_weight'] as double) && weight <= (r['max_weight'] as double)) {
+        setState(() { _priceCtrl.text = (r['price'] as double).toStringAsFixed(0); _isOutOfRange = false; }); return;
+      }
+    }
+    setState(() => _isOutOfRange = true);
+  }
+
+  Future<void> _pickDate() async {
+    final parts = _obtainedDate.split('-');
+    final initialDate = parts.length == 3 ? DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2])) : DateTime.now();
+    final picked = await showDatePicker(context: context, initialDate: initialDate, firstDate: DateTime(2020), lastDate: DateTime(2100));
+    if (picked != null) setState(() => _obtainedDate = picked.toString().substring(0, 10));
+  }
+
+  Future<void> _save() async {
+    if (_nameCtrl.text.trim().isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请填写蛋名！'))); return; }
+    if (_weightCtrl.text.trim().isEmpty || double.tryParse(_weightCtrl.text) == null) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请填写正确的重量！'))); return; }
+
+    final db = await AppDatabase.instance.db;
+    
+    // 图片同步
+    String? finalPath = await syncEggImage(_nameCtrl.text, _tempSelectedImagePath, widget.egg?.iconPath);
+    
+    // 父母本快照 (如果选了产线，就存产线关联的配对组快照)
+    String? fatherName, motherName;
+    if (widget.egg != null && _isParentLocked) {
+      fatherName = widget.egg!.fatherNameSnapshot; motherName = widget.egg!.motherNameSnapshot;
+    } else if (_pairingId != null) {
+      final mRows = await db.rawQuery('SELECT p.name FROM parents p JOIN pairings pa ON p.id = pa.mother_id WHERE pa.id = ?', [_pairingId]);
+      final fRows = await db.rawQuery('SELECT p.name FROM parents p JOIN pairing_fathers pf ON p.id = pf.father_id WHERE pf.pairing_id = ?', [_pairingId]);
+      if (mRows.isNotEmpty) motherName = mRows.first['name'] as String?;
+      if (fRows.isNotEmpty) fatherName = fRows.map((e) => e['name'] as String).join('、');
+    }
+
+    final medals = <String>[]; if (_sizeMedal != null) medals.add(_sizeMedal!); if (_voiceMedal != null) medals.add(_voiceMedal!);
+    if (_status == '需售后') _isAfterSales = true;
+
+    final e = Egg(
+      id: widget.egg?.id, name: _nameCtrl.text, weight: double.tryParse(_weightCtrl.text) ?? 0, medals: medals, nature: _natureCtrl.text, price: double.tryParse(_priceCtrl.text), status: _status, iconPath: finalPath, createdAt: widget.egg?.createdAt, 
+      salePlatform: _salePlatformCtrl.text, buyerPlatformName: _buyerPlatNameCtrl.text, buyerPlatformId: _buyerPlatIdCtrl.text, buyerGameName: _buyerGameNameCtrl.text, buyerGameId: _buyerGameIdCtrl.text, note: _noteCtrl.text,
+      nestType: _nestType, obtainedDate: _obtainedDate, account: _selectedAccount, 
+      pairingId: _pairingId, 
+      fatherNameSnapshot: fatherName, motherNameSnapshot: motherName, afterSalesPlan: _afterSalesCtrl.text, isAfterSales: _isAfterSales,
+    );
+    if (e.id == null) { await db.insert('eggs', e.toMap()); } else { await db.update('eggs', e.toMap(), where: 'id=?', whereArgs: [e.id]); }
+    if (mounted) Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    bool isReadOnly = _status == '已售出' || _status == '需售后'; 
+    
+    return Scaffold(
+      appBar: AppBar(title: Text(widget.egg == null ? '新增精灵蛋' : '编辑精灵蛋')),
+      body: ListView(padding: const EdgeInsets.all(16), children: [
+        Row(children: [
+          _tempSelectedImagePath != null ? ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.file(File(_tempSelectedImagePath!), width: 60, height: 60, fit: BoxFit.cover)) : getLocalImage(_iconPath, 'egg_icons', size: 60),
+          const SizedBox(width: 16),
+          ElevatedButton.icon(onPressed: () async { final res = await FilePicker.platform.pickFiles(type: FileType.image); if (res != null && res.files.single.path != null) setState(() => _tempSelectedImagePath = res.files.single.path!); }, icon: const Icon(Icons.image), label: const Text('选图')),
+        ]),
+        const SizedBox(height: 16),
+        
+        // 选产线，自动带出信息
+        DropdownButtonFormField<int>(
+          value: _lineId,
+          decoration: const InputDecoration(labelText: '选择产线 (自动填充蛋名/性格)'),
+          items: _lines.map((l) => DropdownMenuItem(value: l.id, child: Text(l.name))).toList(),
+          onChanged: isReadOnly ? null : (v) {
+            final line = _lines.firstWhere((element) => element.id == v);
+            setState(() {
+              _lineId = v;
+              _nameCtrl.text = line.name;
+              _natureCtrl.text = line.nature;
+              _nestType = line.nestType;
+              _pairingId = line.pairingId;
+              _selectedAccount = line.accountName;
+              _iconPath = line.iconPath;
+              _isParentLocked = true;
+            });
+            _autoFillPrice(_weightCtrl.text);
+          },
+        ),
+        const SizedBox(height: 16),
+        TextField(controller: _nameCtrl, enabled: false, decoration: const InputDecoration(labelText: '蛋名 (由产线自动决定)')),
+        
+        const SizedBox(height: 16),
+        Row(children: [
+          Expanded(child: _buildNestButton('普窝', isReadOnly)),
+          const SizedBox(width: 16),
+          Expanded(child: _buildNestButton('绿窝', isReadOnly)),
+        ]),
+
+        const SizedBox(height: 16),
+        Row(children: [
+          Expanded(child: TextField(controller: _weightCtrl, enabled: !isReadOnly, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: '重量(kg)', errorText: _isOutOfRange ? '不在范围内' : null), onChanged: _autoFillPrice)),
+          const SizedBox(width: 16),
+          Expanded(child: TextField(controller: _natureCtrl, enabled: false, decoration: const InputDecoration(labelText: '性格 (自动推导)'))),
+        ]),
+        
+        const SizedBox(height: 16),
+        Row(children: [
+          Expanded(child: TextField(controller: _priceCtrl, enabled: !isReadOnly, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '标价'))),
+          const SizedBox(width: 16),
+          Expanded(child: InkWell(onTap: isReadOnly ? null : _pickDate, child: InputDecorator(decoration: const InputDecoration(labelText: '收取日期'), child: Text(_obtainedDate)))),
+        ]),
+
+        const SizedBox(height: 24),
+        const Text('体型/重量奖牌 (单选)', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Wrap(spacing: 8, children: sizeMedals.map((m) => ChoiceChip(label: _buildMedalChip(m), selected: _sizeMedal == m, onSelected: isReadOnly ? null : (v) => setState(() => _sizeMedal = v ? m : null))).toList()),
+        
+        const SizedBox(height: 24),
+        const Text('声音奖牌 (单选)', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Wrap(spacing: 8, children: voiceMedals.map((m) => ChoiceChip(label: _buildMedalChip(m), selected: _voiceMedal == m, onSelected: isReadOnly ? null : (v) => setState(() => _voiceMedal = v ? m : null))).toList()),
+        
+        const SizedBox(height: 24),
+        DropdownButtonFormField<String>(
+          value: _status, isExpanded: true, menuMaxHeight: 250, decoration: const InputDecoration(labelText: '状态'),
+          items: ['在库', '已预定', '已售出', '需售后'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+          onChanged: (v) => setState(() => _status = v!),
+        ),
+        
+        const SizedBox(height: 32),
+        const Text('买家与交易信息', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey)),
+        const Divider(),
+        const SizedBox(height: 8),
+        TextField(controller: _salePlatformCtrl, decoration: const InputDecoration(labelText: '售卖平台')),
+        const SizedBox(height: 12),
+        TextField(controller: _buyerPlatNameCtrl, decoration: const InputDecoration(labelText: '买家平台名称')),
+        const SizedBox(height: 12),
+        TextField(controller: _buyerPlatIdCtrl, decoration: const InputDecoration(labelText: '买家平台ID')),
+        const SizedBox(height: 12),
+        TextField(controller: _buyerGameNameCtrl, decoration: const InputDecoration(labelText: '买家游戏名称')),
+        const SizedBox(height: 12),
+        TextField(controller: _buyerGameIdCtrl, decoration: const InputDecoration(labelText: '买家游戏ID')),
+        
+        const SizedBox(height: 32),
+        const Text('其他', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey)),
+        const Divider(),
+        const SizedBox(height: 8),
+        TextField(controller: _noteCtrl, maxLines: 3, decoration: const InputDecoration(labelText: '备注')),
+        const SizedBox(height: 12),
+        TextField(controller: _afterSalesCtrl, enabled: _status == '需售后', maxLines: 3, decoration: const InputDecoration(labelText: '售后方案（仅需售后状态可填写）')),
+
+        const SizedBox(height: 80),
+      ]),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 24, right: 8),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            FloatingActionButton.extended(onPressed: _save, backgroundColor: Colors.green, foregroundColor: Colors.white, heroTag: 'save', icon: const Icon(Icons.check), label: const Text('保存')),
+            const SizedBox(width: 16),
+            FloatingActionButton.extended(
+              onPressed: () async {
+                final confirm = await showDialog<bool>(context: context, builder: (c) => AlertDialog(title: const Text('放弃修改？'), actions: [TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('确定')), TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('取消'))]));
+                if (confirm == true && context.mounted) Navigator.pop(context);
+              }, 
+              backgroundColor: Colors.red, foregroundColor: Colors.white, heroTag: 'cancel', icon: const Icon(Icons.close), label: const Text('取消'),
+            ),
+          ]
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNestButton(String type, bool isReadOnly) {
+    bool isSelected = _nestType == type;
+    return InkWell(
+      onTap: isReadOnly ? null : () {
+        setState(() => _nestType = type);
+        _autoFillPrice(_weightCtrl.text); // 切换窝类型后，重新匹配价格
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.green.shade50 : Colors.white,
+          border: Border.all(color: isSelected ? Colors.green : Colors.grey.shade300, width: 2),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(type, style: TextStyle(color: isSelected ? Colors.green.shade800 : Colors.grey, fontWeight: FontWeight.bold)),
+      ),
+    );
+  }
+}
