@@ -1,7 +1,7 @@
 name: elf_egg_warehouse
 description: 精灵蛋仓库
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.0+4
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
