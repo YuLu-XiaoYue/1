@@ -17,7 +17,6 @@ class PairingPageState extends State<PairingPage> {
 
   @override
   void initState() { super.initState(); _loadAccounts(); }
-
   Future<void> loadData() async { await _loadAccounts(); }
 
   Future<void> _loadAccounts() async {
@@ -40,16 +39,26 @@ class PairingPageState extends State<PairingPage> {
       final motherRows = await db.query('parents', where: 'id=?', whereArgs: [p['mother_id']]);
       if (motherRows.isEmpty) continue;
       final fatherRows = await db.rawQuery('SELECT p.* FROM parents p JOIN pairing_fathers pf ON p.id = pf.father_id WHERE pf.pairing_id = ?', [p['id']]);
+      final fathers = fatherRows.map(Parent.fromMap).toList();
+      final mother = Parent.fromMap(motherRows.first);
       
-      final eggStats = await db.rawQuery('''
-        SELECT status, count(*) as c FROM eggs 
-        WHERE pairing_id = ? OR (pairing_id IS NULL AND mother_id = ? AND father_id IN (SELECT father_id FROM pairing_fathers WHERE pairing_id = ?)) 
-        GROUP BY status
-      ''', [p['id'], p['mother_id'], p['id']]);
-      
+      // 计算是否混窝
+      Set<String> natures = {mother.nature ?? '未知', ...fathers.map((f) => f.nature ?? '未知')};
+      bool isMixed = natures.length >= 3;
+
+      final eggStats = await db.rawQuery('SELECT status, count(*) as c FROM eggs WHERE pairing_id = ? GROUP BY status', [p['id']]);
       int inStock = 0, sold = 0;
       for (var stat in eggStats) { if (stat['status'] == '在库') inStock = stat['c'] as int; if (stat['status'] == '已售出') sold = stat['c'] as int; }
-      loaded.add({'id': p['id'], 'mother': Parent.fromMap(motherRows.first), 'fathers': fatherRows.map(Parent.fromMap).toList(), 'inStock': inStock, 'sold': sold});
+      
+      loaded.add({
+        'id': p['id'], 
+        'mother': mother, 
+        'fathers': fathers, 
+        'inStock': inStock, 
+        'sold': sold, 
+        'isMixed': isMixed, 
+        'nestType': p['nest_type'] ?? '普窝'
+      });
     }
     if (!mounted) return;
     setState(() => _groups = loaded);
@@ -67,29 +76,14 @@ class PairingPageState extends State<PairingPage> {
     return Scaffold(
       body: Column(
         children: [
-          SizedBox(
-            height: 60,
-            child: ListView(
-              scrollDirection: Axis.horizontal, 
-              children: _accounts.map((acc) => InkWell(
-                onTap: () { setState(() => _currentAccount = acc.name); _load(); },
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 150, minWidth: 80),
-                  padding: const EdgeInsets.symmetric(horizontal: 16), 
-                  alignment: Alignment.center, 
-                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: _currentAccount == acc.name ? Theme.of(context).colorScheme.primary : Colors.transparent, width: 3))), 
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(acc.name, style: TextStyle(fontWeight: FontWeight.bold, color: _currentAccount == acc.name ? Theme.of(context).colorScheme.primary : Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
-                      if (acc.accountId != null && acc.accountId!.isNotEmpty)
-                        Text(acc.accountId!, style: const TextStyle(fontSize: 10, color: Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
-                    ],
-                  )
-                ),
-              )).toList()
-            )
-          ),
+          SizedBox(height: 60, child: ListView(scrollDirection: Axis.horizontal, children: _accounts.map((acc) => InkWell(
+            onTap: () { setState(() => _currentAccount = acc.name); _load(); },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24), alignment: Alignment.center, 
+              decoration: BoxDecoration(border: Border(bottom: BorderSide(color: _currentAccount == acc.name ? Theme.of(context).colorScheme.primary : Colors.transparent, width: 3))), 
+              child: Text(acc.name, style: TextStyle(fontWeight: FontWeight.bold, color: _currentAccount == acc.name ? Theme.of(context).colorScheme.primary : Colors.grey)),
+            ),
+          )).toList())),
           Expanded(child: _currentAccount.isEmpty ? const Center(child: Text('请先添加账号')) : ListView.builder(
             padding: const EdgeInsets.all(12),
             itemCount: _groups.length,
@@ -105,7 +99,14 @@ class PairingPageState extends State<PairingPage> {
                     child: Padding(
                       padding: const EdgeInsets.all(12),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('第 ${i + 1} 组', style: const TextStyle(fontWeight: FontWeight.bold)), Text('在库: ${g['inStock']} / 已售出: ${g['sold']}', style: const TextStyle(fontSize: 12, color: Colors.grey))]),
+                        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                          Row(children: [
+                            Text('第 ${i + 1} 组  ', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            if (g['isMixed']) const Text('混窝 ', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                            if (g['nestType'] == '绿窝') Image.asset('assets/nest_types/green_nest.png', width: 18, height: 18),
+                          ]),
+                          Text('在库: ${g['inStock']} / 已售出: ${g['sold']}', style: const TextStyle(fontSize: 12, color: Colors.grey))
+                        ]),
                         const Divider(),
                         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                           Expanded(child: buildParentCard(context, g['mother'], true)),
@@ -123,13 +124,7 @@ class PairingPageState extends State<PairingPage> {
       ),
       floatingActionButton: _currentAccount.isEmpty ? null : Padding(
         padding: const EdgeInsets.only(bottom: 24, right: 8),
-        child: FloatingActionButton(
-          onPressed: () async { 
-            await Navigator.push(context, MaterialPageRoute(builder: (_) => PairingEditPage(account: _currentAccount))); 
-            _load(); 
-          }, 
-          child: const Icon(Icons.add)
-        ),
+        child: FloatingActionButton(onPressed: () async { await Navigator.push(context, MaterialPageRoute(builder: (_) => PairingEditPage(account: _currentAccount))); _load(); }, child: const Icon(Icons.add)),
       ),
     );
   }
@@ -145,6 +140,7 @@ class PairingEditPage extends StatefulWidget {
 class _PairingEditPageState extends State<PairingEditPage> {
   List<Parent> _mothers = [], _fathers = [];
   int? _motherId; Set<int> _fatherIds = {};
+  String _nestType = '普窝'; // 新增窝类型
 
   @override
   void initState() { super.initState(); _load(); }
@@ -159,7 +155,7 @@ class _PairingEditPageState extends State<PairingEditPage> {
   Future<void> _save() async {
     if (_motherId == null) return;
     final db = await AppDatabase.instance.db;
-    final id = await db.insert('pairings', {'account': widget.account, 'mother_id': _motherId});
+    final id = await db.insert('pairings', {'account': widget.account, 'mother_id': _motherId, 'nest_type': _nestType});
     for (var fid in _fatherIds) { await db.insert('pairing_fathers', {'pairing_id': id, 'father_id': fid}); }
     Navigator.pop(context);
   }
@@ -169,6 +165,14 @@ class _PairingEditPageState extends State<PairingEditPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('新建配对组')),
       body: ListView(padding: const EdgeInsets.all(16), children: [
+        const Text('选择窝类型', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Row(children: [
+          Expanded(child: _buildNestButton('普窝')),
+          const SizedBox(width: 16),
+          Expanded(child: _buildNestButton('绿窝')),
+        ]),
+        const SizedBox(height: 24),
         const Text('选择母本', style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         SizedBox(
@@ -202,6 +206,23 @@ class _PairingEditPageState extends State<PairingEditPage> {
         const SizedBox(width: 16),
         FloatingActionButton(onPressed: () => Navigator.pop(context), backgroundColor: Colors.red, foregroundColor: Colors.white, heroTag: 'cancel', child: const Icon(Icons.close)),
       ]),
+    );
+  }
+
+  Widget _buildNestButton(String type) {
+    bool isSelected = _nestType == type;
+    return InkWell(
+      onTap: () => setState(() => _nestType = type),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.green.shade50 : Colors.white,
+          border: Border.all(color: isSelected ? Colors.green : Colors.grey.shade300, width: 2),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(type, style: TextStyle(color: isSelected ? Colors.green.shade800 : Colors.grey, fontWeight: FontWeight.bold)),
+      ),
     );
   }
 }
