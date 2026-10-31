@@ -83,7 +83,6 @@ class PairingPageState extends State<PairingPage> {
         TextField(controller: idCtrl, decoration: const InputDecoration(labelText: '账号ID / 备注')),
       ]),
       actions: [
-        // 修复：用 Row 包裹
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
