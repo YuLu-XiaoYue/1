@@ -1,7 +1,7 @@
 name: elf_egg_warehouse
 description: 精灵蛋仓库
 publish_to: 'none'
-version: 1.0.0+3
+version: 1.0.0+1
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -25,7 +25,20 @@ dependencies:
   archive: ^3.4.10
 
 dev_dependencies:
+  flutter_test:
+    sdk: flutter
   flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.13.1 # 用于生成 APP 图标
+
+# 图标生成配置
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: false
+  image_path: "assets/app_icon.png"
+  windows:
+    generate: true
+    image_path: "assets/app_icon.png"
+    icon_size: 48
 
 flutter:
   uses-material-design: true
@@ -36,3 +49,4 @@ flutter:
     - assets/special_icons/
     - assets/tutorial.txt
     - assets/update_log.txt
+    - assets/app_icon.png # 你的 APP 图标
