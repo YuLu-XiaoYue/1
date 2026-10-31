@@ -92,7 +92,7 @@ class ProductionLinePageState extends State<ProductionLinePage> {
                     crossAxisCount: crossAxisCount,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
-                    childAspectRatio: 0.85, 
+                    childAspectRatio: 0.85, // 控制卡片高度
                   ),
                   itemCount: visible.length,
                   itemBuilder: (context, i) {
@@ -164,6 +164,7 @@ class ProductionLinePageState extends State<ProductionLinePage> {
                                       ],
                                     ),
                                   const Divider(height: 16),
+                                  // 区间展示（列表卡片只展示前2个，完整去编辑里看）
                                   Expanded(
                                     child: _buildMiniRules(line.id!),
                                   )
@@ -188,6 +189,7 @@ class ProductionLinePageState extends State<ProductionLinePage> {
     );
   }
 
+  // 异步获取规则的组件
   Widget _buildMiniRules(int lineId) {
     return FutureBuilder<List<LinePriceRule>>(
       future: AppDatabase.instance.db.then((db) => db.query('line_price_rules', where: 'line_id = ?', whereArgs: [lineId], orderBy: 'min_weight ASC')).then((rows) => rows.map(LinePriceRule.fromMap).toList()),
@@ -276,9 +278,11 @@ class _ProductionLineEditPageState extends State<ProductionLineEditPage> {
     setState(() => _rules = rows.map(LinePriceRule.fromMap).toList());
   }
 
+  // 核心自动识别：输入名字时，去精灵库找蛋组和图标
   Future<void> _onNameChanged(String name) async {
     if (name.isEmpty) return;
     final db = await AppDatabase.instance.db;
+    // 模糊搜索，找出名字包含输入内容的精灵
     final rows = await db.query('creatures');
     final creatures = rows.map(Creature.fromMap).toList();
     
@@ -322,6 +326,7 @@ class _ProductionLineEditPageState extends State<ProductionLineEditPage> {
     );
     if (line.id == null) { 
       final id = await db.insert('production_lines', line.toMap()); 
+      // 如果是新建，把当前临时添加的区间绑到新产线上
       for (var r in _rules) { await db.insert('line_price_rules', {'line_id': id, 'min_weight': r.minWeight, 'max_weight': r.maxWeight, 'price': r.price}); }
     } else { 
       await db.update('production_lines', line.toMap(), where: 'id=?', whereArgs: [line.id]); 
@@ -344,6 +349,7 @@ class _ProductionLineEditPageState extends State<ProductionLineEditPage> {
           final min = double.tryParse(minCtrl.text), max = double.tryParse(maxCtrl.text), price = double.tryParse(priceCtrl.text);
           if (min != null && max != null && price != null) {
             setState(() { _rules.add(LinePriceRule(lineId: widget.line?.id ?? -1, minWeight: min, maxWeight: max, price: price)); });
+            // 如果是编辑已有产线，立刻写入数据库
             if (widget.line != null) {
               final db = await AppDatabase.instance.db;
               await db.insert('line_price_rules', {'line_id': widget.line!.id, 'min_weight': min, 'max_weight': max, 'price': price});
@@ -366,30 +372,27 @@ class _ProductionLineEditPageState extends State<ProductionLineEditPage> {
     }
   }
 
-  // === 核心修改：居中选择弹窗 ===
-  void _showAlertPicker(String title, List<String> items, String? current, Function(String) onSelect) {
-    showDialog(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: Text(title, style: const TextStyle(fontSize: 18)),
-        contentPadding: const EdgeInsets.only(top: 16, bottom: 0),
-        content: SizedBox(
-          width: 300,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: items.length,
-            itemBuilder: (context, i) => ListTile(
-              title: Text(items[i], textAlign: TextAlign.center),
-              trailing: current == items[i] ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary) : null,
-              onTap: () { onSelect(items[i]); Navigator.pop(c); },
+  // 通用底部弹出选择器，彻底解决下拉框往上顶的问题
+  void _showBottomPicker(String title, List<String> items, String? current, Function(String) onSelect) {
+    showModalBottomSheet(context: context, builder: (c) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(padding: const EdgeInsets.all(16), child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18))),
+          Flexible(
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: items.length,
+              itemBuilder: (context, i) => ListTile(
+                title: Text(items[i], textAlign: TextAlign.center),
+                trailing: current == items[i] ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary) : null,
+                onTap: () { onSelect(items[i]); Navigator.pop(c); },
+              ),
             ),
           ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(c), child: const Text('取消')),
         ],
-      ),
-    );
+      )
+    ));
   }
 
   @override
@@ -397,8 +400,10 @@ class _ProductionLineEditPageState extends State<ProductionLineEditPage> {
     return Scaffold(
       appBar: AppBar(title: Text(widget.line == null ? '新增产线' : '编辑产线')),
       body: ListView(padding: const EdgeInsets.all(16), children: [
+        // 名字输入框，自动触发蛋组识别
         TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: '产线名称 (蛋名)'), onChanged: _onNameChanged),
         
+        // 自动识别的图标和蛋组展示
         if (_iconPath != null || _eggGroups.isNotEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
@@ -412,12 +417,14 @@ class _ProductionLineEditPageState extends State<ProductionLineEditPage> {
           ),
 
         const SizedBox(height: 16),
+        // 账号选择
         InkWell(
-          onTap: () => _showAlertPicker('选择账号', _accounts.map((e) => e.name).toList(), _account, (v) { setState(() { _account = v; _pairingId = null; }); _loadPairings(); }),
+          onTap: () => _showBottomPicker('选择账号', _accounts.map((e) => e.name).toList(), _account, (v) { setState(() { _account = v; _pairingId = null; }); _loadPairings(); }),
           child: InputDecorator(decoration: const InputDecoration(labelText: '所属账号', suffixIcon: Icon(Icons.arrow_drop_down)), child: Text(_account)),
         ),
 
         const SizedBox(height: 16),
+        // 窝类型按钮
         Row(children: [
           Expanded(child: _buildNestButton('普窝')),
           const SizedBox(width: 16),
@@ -425,8 +432,10 @@ class _ProductionLineEditPageState extends State<ProductionLineEditPage> {
         ]),
 
         const SizedBox(height: 16),
+        // 配对组选择
         InkWell(
-          onTap: () => _showAlertPicker('选择配对组', _pairings.map((e) => '组 ${e['id']} (母本ID: ${e['mother_id']})').toList(), _pairingId != null ? '组 $_pairingId (母本ID: ...)' : null, (v) { 
+          onTap: () => _showBottomPicker('选择配对组', _pairings.map((e) => '组 ${e['id']} (母本ID: ${e['mother_id']})').toList(), _pairingId != null ? '组 $_pairingId (母本ID: ...)' : null, (v) { 
+            // 简化处理，直接取组ID
             int id = int.parse(v.split(' ')[1]);
             _onPairingSelected(id);
           }),
@@ -437,6 +446,7 @@ class _ProductionLineEditPageState extends State<ProductionLineEditPage> {
         ),
 
         const SizedBox(height: 24),
+        // 自动识别性格展示
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
