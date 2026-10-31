@@ -160,8 +160,12 @@ class PairingPageState extends State<PairingPage> {
                 onSecondaryTap: () => _deleteGroup(g['id']),
                 child: Slidable(
                   key: ValueKey(g['id']),
-                  extentRatio: 0.25, 
-                  endActionPane: ActionPane(motion: const ScrollMotion(), children: [SlidableAction(onPressed: (_) => _deleteGroup(g['id']), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')]),
+                  // === 核心修复：extentRatio 移到了 ActionPane 里 ===
+                  endActionPane: ActionPane(
+                    motion: const ScrollMotion(), 
+                    extentRatio: 0.25, 
+                    children: [SlidableAction(onPressed: (_) => _deleteGroup(g['id']), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')]
+                  ),
                   child: Card(
                     child: Padding(
                       padding: const EdgeInsets.all(12),
