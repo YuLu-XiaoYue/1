@@ -27,9 +27,6 @@ class SettingsPage extends StatefulWidget {
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
-}
-
-class _SettingsPageState extends State<SettingsPage> {
   
   void _updateColor(Color color, String type) async {
     final prefs = await SharedPreferences.getInstance();
@@ -160,7 +157,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    // 核心修复：提前提取所有颜色变量，彻底解决 widget 找不到的语法报错
+    // 提前提取所有颜色变量，彻底解决 widget 找不到的语法报错
     final Color themeColor = widget.currentThemeColor;
     final Color bgColor = widget.currentBgColor;
     final Color cardColor = widget.currentCardColor;
