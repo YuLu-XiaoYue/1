@@ -48,7 +48,7 @@ class AppDatabase {
           await db.insert('accounts', {'name': '默认账号', 'account_id': ''});
           
           String tutorialContent = '欢迎使用精灵蛋仓库！';
-          String logContent = 'v1.5.0\n- 增加精灵库，修复UI问题。';
+          String logContent = 'v1.6.0\n- 修复图标自动同步，完善UI。';
           try {
             tutorialContent = await rootBundle.loadString('assets/tutorial.txt');
             logContent = await rootBundle.loadString('assets/update_log.txt');
@@ -59,6 +59,40 @@ class AppDatabase {
         },
       ),
     );
+  }
+
+  // 新增：全盘扫描自动同步缺失的图标（修复老数据没图的问题）
+  Future<void> syncAllCreatureIcons() async {
+    final db = await instance.db;
+    final creatures = (await db.query('creatures')).map(Creature.fromMap).toList();
+    
+    for (var c in creatures) {
+      if (c.iconPath == null || c.iconPath!.isEmpty) continue;
+
+      final lines = await db.query('production_lines');
+      for (var line in lines) {
+        final icon = line['icon_path'] as String?;
+        if ((icon == null || icon.isEmpty) && (line['name'] as String).contains(c.name)) {
+          await db.update('production_lines', {'icon_path': c.iconPath}, where: 'id = ?', whereArgs: [line['id']]);
+        }
+      }
+
+      final eggs = await db.query('eggs');
+      for (var egg in eggs) {
+        final icon = egg['icon_path'] as String?;
+        if ((icon == null || icon.isEmpty) && (egg['name'] as String).contains(c.name)) {
+          await db.update('eggs', {'icon_path': c.iconPath}, where: 'id = ?', whereArgs: [egg['id']]);
+        }
+      }
+
+      final parents = await db.query('parents');
+      for (var parent in parents) {
+        final icon = parent['icon_path'] as String?;
+        if ((icon == null || icon.isEmpty) && (parent['name'] as String).contains(c.name)) {
+          await db.update('parents', {'icon_path': c.iconPath}, where: 'id = ?', whereArgs: [parent['id']]);
+        }
+      }
+    }
   }
 
   Future<String?> exportBackup() async {
@@ -88,9 +122,10 @@ class AppDatabase {
     final zipData = ZipEncoder().encode(archive);
     if (zipData != null) {
       try {
+        final timeStr = DateTime.now().millisecondsSinceEpoch.toString().substring(8);
         return await FilePicker.platform.saveFile(
           dialogTitle: '保存全量备份 (.zip)',
-          fileName: 'elf_egg_full_backup.zip',
+          fileName: '精灵蛋全量备份_$timeStr.zip',
           bytes: Uint8List.fromList(zipData),
         );
       } catch (e) { return null; }
@@ -146,7 +181,8 @@ class AppDatabase {
     final rows = await db.query('articles');
     String jsonStr = jsonEncode({'articles': rows});
     try {
-      return await FilePicker.platform.saveFile(dialogTitle: '保存文本备份', fileName: 'elf_egg_text_backup.json', bytes: utf8.encode(jsonStr));
+      final timeStr = DateTime.now().millisecondsSinceEpoch.toString().substring(8);
+      return await FilePicker.platform.saveFile(dialogTitle: '保存文本备份', fileName: '精灵蛋文本备份_$timeStr.json', bytes: utf8.encode(jsonStr));
     } catch (e) { return null; }
   }
 
@@ -198,7 +234,8 @@ class AppDatabase {
     List<int>? fileBytes = excel.save();
     if (fileBytes != null) {
       try {
-        return await FilePicker.platform.saveFile(dialogTitle: '保存 Excel 表格', fileName: '精灵蛋数据导出.xlsx', bytes: Uint8List.fromList(fileBytes));
+        final timeStr = DateTime.now().millisecondsSinceEpoch.toString().substring(8);
+        return await FilePicker.platform.saveFile(dialogTitle: '保存 Excel 表格', fileName: '精灵蛋数据_$timeStr.xlsx', bytes: Uint8List.fromList(fileBytes));
       } catch (e) { return null; }
     }
     return null;
@@ -232,6 +269,13 @@ Future<String?> syncEggImage(String name, String? tempNewPath, String? currentPa
     await db.update('eggs', {'icon_path': finalPath}, where: 'name = ?', whereArgs: [name]);
     await db.update('parents', {'icon_path': finalPath}, where: 'name = ?', whereArgs: [name]);
     await db.update('creatures', {'icon_path': finalPath}, where: 'name = ?', whereArgs: [name]);
+    // 产线也要同步
+    final lines = await db.query('production_lines');
+    for(var l in lines) {
+      if ((l['name'] as String).contains(name) && (l['icon_path'] == null || (l['icon_path'] as String).isEmpty)) {
+        await db.update('production_lines', {'icon_path': finalPath}, where: 'id = ?', whereArgs: [l['id']]);
+      }
+    }
     
     for (var oldFile in oldFilesToDelete) {
       final f1 = File(p.join(appDocsPath, 'egg_icons', oldFile));
