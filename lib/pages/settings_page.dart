@@ -27,6 +27,10 @@ class SettingsPage extends StatefulWidget {
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
+}
+
+// 👇 注意看这里：之前你缺了这个类的外壳，现在所有的逻辑都被放进这里面了
+class _SettingsPageState extends State<SettingsPage> {
   
   void _updateColor(Color color, String type) async {
     final prefs = await SharedPreferences.getInstance();
@@ -51,7 +55,7 @@ class SettingsPage extends StatefulWidget {
   void _pickColor(Color initialColor, String title, Function(Color) onColorChanged) async {
     Color picked = initialColor;
     await showDialog(
-      context: context,
+      context: context, // 现在这里可以正常使用 context 了
       builder: (c) => StatefulBuilder(
         builder: (context, setDialogState) {
           return AlertDialog(
@@ -157,7 +161,7 @@ class SettingsPage extends StatefulWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 提前提取所有颜色变量，彻底解决 widget 找不到的语法报错
+    // 现在这里在 State 类中，widget.currentThemeColor 可以完美运行
     final Color themeColor = widget.currentThemeColor;
     final Color bgColor = widget.currentBgColor;
     final Color cardColor = widget.currentCardColor;
