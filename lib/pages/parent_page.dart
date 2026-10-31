@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
-import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import '../db/database.dart';
 import '../models/models.dart';
@@ -146,7 +145,6 @@ class ParentPageState extends State<ParentPage> {
           TextField(controller: idCtrl, decoration: const InputDecoration(labelText: '账号ID / 备注')),
         ]),
         actions: [
-          // 修复：用 Row 包裹，彻底解决 Spacer 导致的布局撑爆问题
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -308,7 +306,6 @@ class ParentEditPage extends StatefulWidget {
 class _ParentEditPageState extends State<ParentEditPage> {
   final _nameCtrl = TextEditingController(), _natureCtrl = TextEditingController(), _heightCtrl = TextEditingController(), _weightCtrl = TextEditingController(), _voiceCtrl = TextEditingController();
   String _gender = '母本'; String? _bloodline, _iconPath; String _appearance = '普通';
-  String? _tempSelectedImagePath;
 
   @override
   void initState() {
@@ -318,13 +315,31 @@ class _ParentEditPageState extends State<ParentEditPage> {
     }
   }
 
+  // 核心修改：名字改变时，自动去精灵库找图标
+  Future<void> _onNameChanged(String name) async {
+    if (name.isEmpty) return;
+    final db = await AppDatabase.instance.db;
+    final rows = await db.query('creatures');
+    final creatures = rows.map(Creature.fromMap).toList();
+    
+    for (var c in creatures) {
+      if (name.contains(c.name)) {
+        setState(() => _iconPath = c.iconPath);
+        return;
+      }
+    }
+  }
+
   Future<void> _save() async {
     if (_nameCtrl.text.isEmpty) return;
     final db = await AppDatabase.instance.db;
     
-    String? finalPath = await syncParentImage(_nameCtrl.text, _tempSelectedImagePath, widget.parent?.iconPath);
+    // 如果是老数据，且没有从名字匹配到新图，再尝试调用同步
+    if (_iconPath == null) {
+      _iconPath = await syncParentImage(_nameCtrl.text, null, widget.parent?.iconPath);
+    }
 
-    final p = Parent(id: widget.parent?.id, name: _nameCtrl.text, gender: _gender, account: widget.account, nature: _natureCtrl.text, height: double.tryParse(_heightCtrl.text), weight: double.tryParse(_weightCtrl.text), voice: double.tryParse(_voiceCtrl.text), bloodline: _bloodline, iconPath: finalPath, appearance: _appearance);
+    final p = Parent(id: widget.parent?.id, name: _nameCtrl.text, gender: _gender, account: widget.account, nature: _natureCtrl.text, height: double.tryParse(_heightCtrl.text), weight: double.tryParse(_weightCtrl.text), voice: double.tryParse(_voiceCtrl.text), bloodline: _bloodline, iconPath: _iconPath, appearance: _appearance);
     if (p.id == null) { await db.insert('parents', p.toMap()); } else { await db.update('parents', p.toMap(), where: 'id=?', whereArgs: [p.id]); }
     if (mounted) Navigator.pop(context);
   }
@@ -334,15 +349,16 @@ class _ParentEditPageState extends State<ParentEditPage> {
     return Scaffold(
       appBar: AppBar(title: Text(widget.parent == null ? '新增父母本' : '编辑父母本')),
       body: ListView(padding: const EdgeInsets.all(16), children: [
-        Row(children: [
-          _tempSelectedImagePath != null 
-            ? ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.file(File(_tempSelectedImagePath!), width: 60, height: 60, fit: BoxFit.cover))
-            : getLocalImage(_iconPath, 'parent_icons', size: 60, fallbackIcon: Icons.face),
-          const SizedBox(width: 16),
-          ElevatedButton.icon(onPressed: () async { final res = await FilePicker.platform.pickFiles(type: FileType.image); if (res != null && res.files.single.path != null) setState(() => _tempSelectedImagePath = res.files.single.path!); }, icon: const Icon(Icons.image), label: const Text('选图')),
-        ]),
-        const SizedBox(height: 16),
-        TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: '精灵名字')),
+        
+        // 核心修改：只展示图标，去掉“选图”按钮
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: getLocalImage(_iconPath, 'parent_icons', size: 80, fallbackIcon: Icons.face),
+          ),
+        ),
+
+        TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: '精灵名字 (自动识别图标)'), onChanged: _onNameChanged),
         
         const SizedBox(height: 16),
         const Text('性别', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
