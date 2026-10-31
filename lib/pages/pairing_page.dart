@@ -16,7 +16,6 @@ class PairingPageState extends State<PairingPage> {
   String _currentAccount = '';
   List<Map<String, dynamic>> _groups = [];
   
-  // 筛选状态
   String _filterNature = '全部';
   String _filterMotherName = '全部';
   String _filterEggGroup = '全部';
@@ -55,7 +54,6 @@ class PairingPageState extends State<PairingPage> {
       int inStock = 0, sold = 0;
       for (var stat in eggStats) { if (stat['status'] == '在库') inStock = stat['c'] as int; if (stat['status'] == '已售出') sold = stat['c'] as int; }
       
-      // 获取相关产线的蛋组供筛选
       List<String> relatedEggGroups = [];
       final lines = await db.query('production_lines', where: 'pairing_id = ?', whereArgs: [p['id']]);
       for (var l in lines) {
@@ -64,14 +62,8 @@ class PairingPageState extends State<PairingPage> {
       }
 
       loaded.add({
-        'id': p['id'], 
-        'groupName': p['group_name'] ?? '', 
-        'mother': mother, 
-        'fathers': fathers, 
-        'inStock': inStock, 
-        'sold': sold, 
-        'isMixed': isMixed, 
-        'nestType': p['nest_type'] ?? '普窝',
+        'id': p['id'], 'groupName': p['group_name'] ?? '', 'mother': mother, 'fathers': fathers, 
+        'inStock': inStock, 'sold': sold, 'isMixed': isMixed, 'nestType': p['nest_type'] ?? '普窝',
         'eggGroups': relatedEggGroups.toSet().toList(), 
       });
     }
@@ -91,47 +83,57 @@ class PairingPageState extends State<PairingPage> {
         TextField(controller: idCtrl, decoration: const InputDecoration(labelText: '账号ID / 备注')),
       ]),
       actions: [
-        TextButton(
-          onPressed: () async {
-            final confirm = await showDialog<bool>(context: context, builder: (c2) => AlertDialog(
-              title: Text('危险操作'), content: Text('确定删除账号 "${acc.name}" 吗？\n该账号下的所有数据都将被清除！'), 
-              actions: [TextButton(onPressed: () => Navigator.pop(c2, false), child: const Text('取消')), TextButton(onPressed: () => Navigator.pop(c2, true), child: const Text('确定删除', style: TextStyle(color: Colors.red)))]
-            ));
-            if (confirm == true) {
-              final db = await AppDatabase.instance.db;
-              await db.transaction((txn) async {
-                final eggs = await txn.query('eggs', where: 'account = ? AND status != ?', whereArgs: [acc.name, '已售出']);
-                for (var e in eggs) { await txn.update('eggs', {'father_id': null, 'mother_id': null}, where: 'id = ?', whereArgs: [e['id']]); }
-                await txn.delete('parents', where: 'account = ?', whereArgs: [acc.name]);
-                await txn.delete('pairings', where: 'account = ?', whereArgs: [acc.name]);
-                await txn.delete('production_lines', where: 'account_name = ?', whereArgs: [acc.name]);
-                await txn.delete('accounts', where: 'id = ?', whereArgs: [acc.id]);
-              });
-              if (mounted) Navigator.pop(c);
-              _loadAccounts();
-            }
-          }, child: const Text('删除账号', style: TextStyle(color: Colors.red))
-        ),
-        const Spacer(),
-        TextButton(onPressed: () => Navigator.pop(c), child: const Text('取消')),
-        ElevatedButton(
-          onPressed: () async {
-            if (nameCtrl.text.isEmpty) return;
-            final db = await AppDatabase.instance.db;
-            final oldName = acc.name;
-            final newName = nameCtrl.text;
-            await db.transaction((txn) async {
-              await txn.update('accounts', {'name': newName, 'account_id': idCtrl.text}, where: 'id = ?', whereArgs: [acc.id]);
-              if (oldName != newName) {
-                 await txn.update('parents', {'account': newName}, where: 'account = ?', whereArgs: [oldName]);
-                 await txn.update('pairings', {'account': newName}, where: 'account = ?', whereArgs: [oldName]);
-                 await txn.update('production_lines', {'account_name': newName}, where: 'account_name = ?', whereArgs: [oldName]);
-                 await txn.update('eggs', {'account': newName}, where: 'account = ?', whereArgs: [oldName]);
-              }
-            });
-            if (mounted) Navigator.pop(c);
-            _loadAccounts();
-          }, child: const Text('保存修改')
+        // 修复：用 Row 包裹
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            TextButton(
+              onPressed: () async {
+                final confirm = await showDialog<bool>(context: context, builder: (c2) => AlertDialog(
+                  title: Text('危险操作'), content: Text('确定删除账号 "${acc.name}" 吗？\n该账号下的所有数据都将被清除！'), 
+                  actions: [TextButton(onPressed: () => Navigator.pop(c2, false), child: const Text('取消')), TextButton(onPressed: () => Navigator.pop(c2, true), child: const Text('确定删除', style: TextStyle(color: Colors.red)))]
+                ));
+                if (confirm == true) {
+                  final db = await AppDatabase.instance.db;
+                  await db.transaction((txn) async {
+                    final eggs = await txn.query('eggs', where: 'account = ? AND status != ?', whereArgs: [acc.name, '已售出']);
+                    for (var e in eggs) { await txn.update('eggs', {'father_id': null, 'mother_id': null}, where: 'id = ?', whereArgs: [e['id']]); }
+                    await txn.delete('parents', where: 'account = ?', whereArgs: [acc.name]);
+                    await txn.delete('pairings', where: 'account = ?', whereArgs: [acc.name]);
+                    await txn.delete('production_lines', where: 'account_name = ?', whereArgs: [acc.name]);
+                    await txn.delete('accounts', where: 'id = ?', whereArgs: [acc.id]);
+                  });
+                  if (mounted) Navigator.pop(c);
+                  _loadAccounts();
+                }
+              }, child: const Text('删除账号', style: TextStyle(color: Colors.red))
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextButton(onPressed: () => Navigator.pop(c), child: const Text('取消')),
+                ElevatedButton(
+                  onPressed: () async {
+                    if (nameCtrl.text.isEmpty) return;
+                    final db = await AppDatabase.instance.db;
+                    final oldName = acc.name;
+                    final newName = nameCtrl.text;
+                    await db.transaction((txn) async {
+                      await txn.update('accounts', {'name': newName, 'account_id': idCtrl.text}, where: 'id = ?', whereArgs: [acc.id]);
+                      if (oldName != newName) {
+                         await txn.update('parents', {'account': newName}, where: 'account = ?', whereArgs: [oldName]);
+                         await txn.update('pairings', {'account': newName}, where: 'account = ?', whereArgs: [oldName]);
+                         await txn.update('production_lines', {'account_name': newName}, where: 'account_name = ?', whereArgs: [oldName]);
+                         await txn.update('eggs', {'account': newName}, where: 'account = ?', whereArgs: [oldName]);
+                      }
+                    });
+                    if (mounted) Navigator.pop(c);
+                    _loadAccounts();
+                  }, child: const Text('保存修改')
+                ),
+              ],
+            )
+          ],
         ),
       ],
     ));
@@ -144,7 +146,6 @@ class PairingPageState extends State<PairingPage> {
     if (confirm == true) { final db = await AppDatabase.instance.db; await db.delete('pairings', where: 'id = ?', whereArgs: [id]); _load(); }
   }
 
-  // 修复问题 1：配对库高级筛选
   void _showFilterDialog() {
     Set<String> mothers = _groups.map((g) => (g['mother'] as Parent).name).toSet();
     Set<String> allGroups = _groups.expand((g) => g['eggGroups'] as List<String>).toSet();
@@ -157,7 +158,7 @@ class PairingPageState extends State<PairingPage> {
             title: const Text('筛选配对组'),
             content: Column(mainAxisSize: MainAxisSize.min, children: [
               DropdownButtonFormField<String>(
-                value: _filterNature, isExpanded: true, decoration: const InputDecoration(labelText: '按性格 (包含父母本)'),
+                value: _filterNature, isExpanded: true, decoration: const InputDecoration(labelText: '按性格'),
                 items: [const DropdownMenuItem(value: '全部', child: Text('全部')), ...naturesList.map((e) => DropdownMenuItem(value: e, child: Text(e)))],
                 onChanged: (v) => setDialogState(() => _filterNature = v!),
               ),
@@ -227,7 +228,6 @@ class PairingPageState extends State<PairingPage> {
             itemCount: visible.length,
             itemBuilder: (context, i) {
               final g = visible[i];
-              // 修复问题 2：显示自定义组名
               String displayName = '第 ${i + 1} 组';
               if (g['groupName'].isNotEmpty) { displayName += ' - ${g['groupName']}'; }
 
@@ -299,10 +299,7 @@ class _PairingEditPageState extends State<PairingEditPage> {
     if (_motherId == null) return;
     final db = await AppDatabase.instance.db;
     final id = await db.insert('pairings', {
-      'account': widget.account, 
-      'mother_id': _motherId, 
-      'nest_type': _nestType,
-      'group_name': _groupNameCtrl.text.trim() 
+      'account': widget.account, 'mother_id': _motherId, 'nest_type': _nestType, 'group_name': _groupNameCtrl.text.trim() 
     });
     for (var fid in _fatherIds) { await db.insert('pairing_fathers', {'pairing_id': id, 'father_id': fid}); }
     Navigator.pop(context);
@@ -313,7 +310,7 @@ class _PairingEditPageState extends State<PairingEditPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('新建配对组')),
       body: ListView(padding: const EdgeInsets.all(16), children: [
-        TextField(controller: _groupNameCtrl, decoration: const InputDecoration(labelText: '自定义组名 (选填，如: 双黑猫组)')), 
+        TextField(controller: _groupNameCtrl, decoration: const InputDecoration(labelText: '自定义组名 (选填)')), 
         const SizedBox(height: 16),
         const Text('选择窝类型', style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
