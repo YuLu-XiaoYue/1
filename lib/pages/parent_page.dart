@@ -20,9 +20,11 @@ Widget _buildBloodlineChip(String bloodline, bool isSelected) {
   ]);
 }
 
+// 公用卡片组件，供配对页复用
 Widget buildParentCard(BuildContext context, Parent p, bool isMother, {bool isSelected = false, VoidCallback? onTap}) {
   return InkWell(
     onTap: onTap,
+    borderRadius: BorderRadius.circular(8),
     child: Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -51,7 +53,7 @@ Widget buildParentCard(BuildContext context, Parent p, bool isMother, {bool isSe
                           child: Text(isMother ? '♀' : '♂', style: TextStyle(color: isMother ? Colors.pink : Colors.blue, fontWeight: FontWeight.bold)),
                         ),
                         const SizedBox(width: 4),
-                        Expanded(child: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15), overflow: TextOverflow.ellipsis)),
+                        Expanded(child: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), overflow: TextOverflow.ellipsis)),
                         if (p.appearance != '普通') Padding(padding: const EdgeInsets.only(right: 4), child: _buildAppearanceIcon(p.appearance)),
                         if (p.bloodline != null) Image.asset('assets/bloodlines/${p.bloodline}.png', width: 16, height: 16, errorBuilder: (c,e,s) => Text(p.bloodline![0], style: const TextStyle(fontSize: 10, color: Colors.purple))),
                       ],
@@ -62,10 +64,11 @@ Widget buildParentCard(BuildContext context, Parent p, bool isMother, {bool isSe
               ),
             ],
           ),
+          const Spacer(),
           const Divider(height: 16),
-          Text('身高: ${p.height ?? "-"}m', style: const TextStyle(fontSize: 12, color: Colors.black87)),
-          Text('体重: ${p.weight ?? "-"}kg', style: const TextStyle(fontSize: 12, color: Colors.black87)),
-          Text('声音: ${p.voice ?? "-"}dB', style: const TextStyle(fontSize: 12, color: Colors.black87)),
+          Text('身高: ${p.height ?? "-"}m', style: const TextStyle(fontSize: 11, color: Colors.black87)),
+          Text('体重: ${p.weight ?? "-"}kg', style: const TextStyle(fontSize: 11, color: Colors.black87)),
+          Text('声音: ${p.voice ?? "-"}dB', style: const TextStyle(fontSize: 11, color: Colors.black87)),
         ],
       ),
     ),
@@ -254,31 +257,48 @@ class ParentPageState extends State<ParentPage> {
             ),
           ),
           Expanded(
-            child: _currentAccount.isEmpty ? const Center(child: Text('请先添加账号')) : ListView.builder(
-              padding: const EdgeInsets.all(12),
-              itemCount: _parents.length,
-              itemBuilder: (context, i) {
-                final p = _parents[i];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: GestureDetector(
-                    onSecondaryTap: () => _deleteParent(p),
-                    child: Slidable(
-                      key: ValueKey(p.id),
-                      endActionPane: ActionPane(motion: const ScrollMotion(), extentRatio: 0.25, children: [SlidableAction(onPressed: (_) => _deleteParent(p), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')]),
-                      child: buildParentCard(
-                        context,
-                        p, p.gender == '母本',
-                        onTap: () async {
-                          await Navigator.push(context, MaterialPageRoute(builder: (_) => ParentEditPage(parent: p, account: _currentAccount)));
-                          _loadParents();
-                        },
+            child: _currentAccount.isEmpty 
+              ? const Center(child: Text('请先添加账号')) 
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    // 响应式网格：宽屏3列，窄屏2列
+                    int crossAxisCount = constraints.maxWidth > 800 ? 3 : 2;
+                    return GridView.builder(
+                      padding: const EdgeInsets.all(12),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: crossAxisCount,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: 0.8, // 控制卡片高度
                       ),
-                    ),
-                  ),
-                );
-              },
-            ),
+                      itemCount: _parents.length,
+                      itemBuilder: (context, i) {
+                        final p = _parents[i];
+                        return GestureDetector(
+                          onSecondaryTap: () => _deleteParent(p),
+                          child: Slidable(
+                            key: ValueKey(p.id),
+                            endActionPane: ActionPane(
+                              motion: const ScrollMotion(), 
+                              extentRatio: 0.25, 
+                              children: [
+                                SlidableAction(onPressed: (_) => _deleteParent(p), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')
+                              ]
+                            ),
+                            child: buildParentCard(
+                              context,
+                              p, p.gender == '母本',
+                              onTap: () async {
+                                await Navigator.push(context, MaterialPageRoute(builder: (_) => ParentEditPage(parent: p, account: _currentAccount)));
+                                _loadParents();
+                              },
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
           ),
         ],
       ),
