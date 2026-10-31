@@ -92,7 +92,7 @@ class ProductionLinePageState extends State<ProductionLinePage> {
                     crossAxisCount: crossAxisCount,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
-                    childAspectRatio: 0.85, 
+                    childAspectRatio: 0.82, 
                   ),
                   itemCount: visible.length,
                   itemBuilder: (context, i) {
@@ -155,6 +155,7 @@ class ProductionLinePageState extends State<ProductionLinePage> {
                                           decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(4)),
                                           child: Text(g, style: const TextStyle(fontSize: 9)),
                                         )),
+                                        // 修复：这里将奖牌文字替换为图片
                                         ...line.medals.map((m) => Image.asset('assets/medals/${medalIconMap[m] ?? m}.png', width: 16, height: 16)),
                                       ],
                                     ),
@@ -227,7 +228,7 @@ class _ProductionLineEditPageState extends State<ProductionLineEditPage> {
   String _nature = '请选择配对组';
   String _natureProb = '概率将在选择配对组后自动生成';
   List<String> _eggGroups = [];
-  List<String> _medals = []; // 现在的产线奖牌
+  List<String> _medals = []; 
   String? _iconPath;
   
   List<Account> _accounts = [];
@@ -299,7 +300,7 @@ class _ProductionLineEditPageState extends State<ProductionLineEditPage> {
     }
   }
 
-  // === 核心修复：奖牌互斥关系 ===
+  // === 修复：奖牌互斥关系 ===
   void _toggleMedal(String medal) {
     setState(() {
       if (_medals.contains(medal)) {
@@ -374,7 +375,7 @@ class _ProductionLineEditPageState extends State<ProductionLineEditPage> {
     }
   }
 
-  // 居中弹窗，显示“组1 - 名字”
+  // === 修复：居中弹窗，显示自定义组名 ===
   void _showPairingPicker() {
     showDialog(
       context: context,
@@ -431,7 +432,6 @@ class _ProductionLineEditPageState extends State<ProductionLineEditPage> {
 
   @override
   Widget build(BuildContext context) {
-    // 取出当前选中的配对组显示名
     String pairingDisplay = '请选择配对组';
     if (_pairingId != null) {
       int idx = _pairings.indexWhere((p) => p['id'] == _pairingId);
@@ -485,7 +485,6 @@ class _ProductionLineEditPageState extends State<ProductionLineEditPage> {
         ]),
 
         const SizedBox(height: 16),
-        // 配对组弹窗选择
         InkWell(
           onTap: _showPairingPicker,
           child: InputDecorator(
@@ -508,7 +507,7 @@ class _ProductionLineEditPageState extends State<ProductionLineEditPage> {
         const SizedBox(height: 24),
         const Text('产线奖牌 (单选互斥)', style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
-        // 展示图标，修复互斥逻辑
+        // 修复：图标展示 + 互斥
         Wrap(
           spacing: 8, runSpacing: 8,
           children: [
