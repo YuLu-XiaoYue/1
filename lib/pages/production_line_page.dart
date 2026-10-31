@@ -125,11 +125,10 @@ class ProductionLinePageState extends State<ProductionLinePage> {
                                       getLocalImage(line.iconPath, 'egg_icons', size: 36),
                                       const SizedBox(width: 8),
                                       Expanded(child: Text(line.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
-                                      const Icon(Icons.edit, size: 16, color: Colors.grey), // 提示可编辑
+                                      const Icon(Icons.edit, size: 16, color: Colors.grey), 
                                     ],
                                   ),
                                   const SizedBox(height: 8),
-                                  // 性格胶囊
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
@@ -144,7 +143,6 @@ class ProductionLinePageState extends State<ProductionLinePage> {
                                   
                                   const Spacer(),
                                   
-                                  // 蛋组与奖牌（这里改成图标展示）
                                   if (line.eggGroups.isNotEmpty || line.medals.isNotEmpty || line.nestType == '绿窝')
                                     Wrap(
                                       spacing: 4, runSpacing: 4,
@@ -155,7 +153,6 @@ class ProductionLinePageState extends State<ProductionLinePage> {
                                           decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(4)),
                                           child: Text(g, style: const TextStyle(fontSize: 9)),
                                         )),
-                                        // 修复：这里将奖牌文字替换为图片
                                         ...line.medals.map((m) => Image.asset('assets/medals/${medalIconMap[m] ?? m}.png', width: 16, height: 16)),
                                       ],
                                     ),
@@ -209,8 +206,6 @@ class ProductionLinePageState extends State<ProductionLinePage> {
     );
   }
 }
-
-// ================= 合并后的新增/编辑页 =================
 
 class ProductionLineEditPage extends StatefulWidget {
   final ProductionLine? line;
@@ -300,13 +295,11 @@ class _ProductionLineEditPageState extends State<ProductionLineEditPage> {
     }
   }
 
-  // === 修复：奖牌互斥关系 ===
   void _toggleMedal(String medal) {
     setState(() {
       if (_medals.contains(medal)) {
-        _medals.remove(medal); // 已选中则取消
+        _medals.remove(medal);
       } else {
-        // 判断属于哪个互斥组，先移除同组里的其他选中项
         if (sizeMedals.contains(medal)) {
           _medals.removeWhere((m) => sizeMedals.contains(m));
         } else if (voiceMedals.contains(medal)) {
@@ -375,12 +368,11 @@ class _ProductionLineEditPageState extends State<ProductionLineEditPage> {
     }
   }
 
-  // === 修复：居中弹窗，显示自定义组名 ===
   void _showPairingPicker() {
     showDialog(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('选择配对组', style: TextStyle(fontSize: 18)),
+        title: const Text('选择配对组', style: TextStyle(fontSize: 18), textAlign: TextAlign.center),
         contentPadding: const EdgeInsets.only(top: 16, bottom: 0),
         content: SizedBox(
           width: 300,
@@ -392,18 +384,30 @@ class _ProductionLineEditPageState extends State<ProductionLineEditPage> {
               String name = p['group_name'] ?? '';
               String display = '组 ${i+1}';
               if (name.isNotEmpty) display += ' - $name';
-              return ListTile(
-                title: Text(display, textAlign: TextAlign.center),
-                trailing: _pairingId == p['id'] ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary) : null,
+              return InkWell(
                 onTap: () { 
                   _onPairingSelected(p['id'] as int);
                   Navigator.pop(c); 
                 },
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
+                      child: Text(display, style: const TextStyle(fontSize: 16), textAlign: TextAlign.center),
+                    ),
+                    if (_pairingId == p['id'])
+                      Positioned(
+                        right: 16,
+                        child: Icon(Icons.check, color: Theme.of(context).colorScheme.primary),
+                      ),
+                  ],
+                ),
               );
             },
           ),
         ),
-        actions: [ TextButton(onPressed: () => Navigator.pop(c), child: const Text('取消')) ],
+        actions: [ Center(child: TextButton(onPressed: () => Navigator.pop(c), child: const Text('取消'))) ],
       ),
     );
   }
@@ -412,20 +416,32 @@ class _ProductionLineEditPageState extends State<ProductionLineEditPage> {
     showDialog(
       context: context,
       builder: (c) => AlertDialog(
-        title: Text(title, style: const TextStyle(fontSize: 18)),
+        title: Text(title, style: const TextStyle(fontSize: 18), textAlign: TextAlign.center),
         contentPadding: const EdgeInsets.only(top: 16, bottom: 0),
         content: SizedBox(
           width: 300,
           child: ListView.builder(
             shrinkWrap: true, itemCount: items.length,
-            itemBuilder: (context, i) => ListTile(
-              title: Text(items[i], textAlign: TextAlign.center),
-              trailing: current == items[i] ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary) : null,
+            itemBuilder: (context, i) => InkWell(
               onTap: () { onSelect(items[i]); Navigator.pop(c); },
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: Text(items[i], style: const TextStyle(fontSize: 16), textAlign: TextAlign.center),
+                  ),
+                  if (current == items[i])
+                    Positioned(
+                      right: 16,
+                      child: Icon(Icons.check, color: Theme.of(context).colorScheme.primary),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
-        actions: [ TextButton(onPressed: () => Navigator.pop(c), child: const Text('取消')) ],
+        actions: [ Center(child: TextButton(onPressed: () => Navigator.pop(c), child: const Text('取消'))) ],
       ),
     );
   }
@@ -507,7 +523,6 @@ class _ProductionLineEditPageState extends State<ProductionLineEditPage> {
         const SizedBox(height: 24),
         const Text('产线奖牌 (单选互斥)', style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
-        // 修复：图标展示 + 互斥
         Wrap(
           spacing: 8, runSpacing: 8,
           children: [
