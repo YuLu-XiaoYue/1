@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:file_picker/file_picker.dart';
-import 'dart:io'; // <--- 补上了这个，用来读取本地文件
+import 'dart:io';
 import '../db/database.dart';
 import '../models/models.dart';
 
@@ -21,7 +21,6 @@ Widget _buildBloodlineChip(String bloodline, bool isSelected) {
   ]);
 }
 
-// 公用卡片组件
 Widget buildParentCard(BuildContext context, Parent p, bool isMother, {bool isSelected = false, VoidCallback? onTap}) {
   return InkWell(
     onTap: onTap,
@@ -258,14 +257,7 @@ class ParentPageState extends State<ParentPage> {
                     onSecondaryTap: () => _deleteParent(p),
                     child: Slidable(
                       key: ValueKey(p.id),
-                      // 注意这里，extentRatio 已经移到了 ActionPane 里
-                      endActionPane: ActionPane(
-                        motion: const ScrollMotion(), 
-                        extentRatio: 0.25, 
-                        children: [
-                          SlidableAction(onPressed: (_) => _deleteParent(p), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')
-                        ]
-                      ),
+                      endActionPane: ActionPane(motion: const ScrollMotion(), extentRatio: 0.25, children: [SlidableAction(onPressed: (_) => _deleteParent(p), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')]),
                       child: buildParentCard(
                         context,
                         p, p.gender == '母本',
@@ -343,23 +335,27 @@ class _ParentEditPageState extends State<ParentEditPage> {
         TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: '精灵名字')),
         
         const SizedBox(height: 16),
+        // 修复问题 3：性别按钮化
+        const Text('性别', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+        const SizedBox(height: 8),
         Row(children: [
-          Expanded(
-            child: DropdownButtonFormField<String>(
-              value: _gender, isExpanded: true, menuMaxHeight: 250, decoration: const InputDecoration(labelText: '性别'),
-              items: ['母本', '父本'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-              onChanged: (v) => setState(() => _gender = v!),
-            )
-          ),
+          Expanded(child: _buildChoiceButton('母本', _gender == '母本', () => setState(() => _gender = '母本'))),
           const SizedBox(width: 16),
-          Expanded(
-            child: DropdownButtonFormField<String>(
-              value: _appearance, isExpanded: true, menuMaxHeight: 250, decoration: const InputDecoration(labelText: '外观'),
-              items: appearanceTypes.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-              onChanged: (v) => setState(() => _appearance = v!),
-            )
-          ),
+          Expanded(child: _buildChoiceButton('父本', _gender == '父本', () => setState(() => _gender = '父本'))),
         ]),
+
+        const SizedBox(height: 16),
+        // 修复问题 3：外观按钮化（平铺展示，不顶屏幕）
+        const Text('外观', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8, runSpacing: 8,
+          children: appearanceTypes.map((a) => ChoiceChip(
+            label: Text(a), 
+            selected: _appearance == a, 
+            onSelected: (v) => setState(() => _appearance = v ? a : '普通')
+          )).toList(),
+        ),
         
         const SizedBox(height: 16),
         TextField(controller: _natureCtrl, decoration: const InputDecoration(labelText: '性格')),
@@ -384,6 +380,22 @@ class _ParentEditPageState extends State<ParentEditPage> {
           if (confirm == true && context.mounted) Navigator.pop(context);
         }, backgroundColor: Colors.red, foregroundColor: Colors.white, heroTag: 'cancel', child: const Icon(Icons.close)),
       ]),
+    );
+  }
+
+  Widget _buildChoiceButton(String label, bool isSelected, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.green.shade50 : Colors.white,
+          border: Border.all(color: isSelected ? Colors.green : Colors.grey.shade300, width: 2),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(label, style: TextStyle(color: isSelected ? Colors.green.shade800 : Colors.grey, fontWeight: FontWeight.bold)),
+      ),
     );
   }
 }
