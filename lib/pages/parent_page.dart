@@ -146,55 +146,65 @@ class ParentPageState extends State<ParentPage> {
           TextField(controller: idCtrl, decoration: const InputDecoration(labelText: '账号ID / 备注')),
         ]),
         actions: [
-          TextButton(
-            onPressed: () async {
-              final confirm = await showDialog<bool>(context: context, builder: (c2) => AlertDialog(
-                title: Text('危险操作'), 
-                content: Text('确定删除账号 "${acc.name}" 吗？\n该账号下的所有父母本、配对组、产线都将被彻底清除！在库的蛋会解除关联，已售出的保留历史。'), 
-                actions: [
-                  TextButton(onPressed: () => Navigator.pop(c2, false), child: const Text('取消')), 
-                  TextButton(onPressed: () => Navigator.pop(c2, true), child: const Text('确定删除', style: TextStyle(color: Colors.red)))
-                ]
-              ));
-              
-              if (confirm == true) {
-                final db = await AppDatabase.instance.db;
-                await db.transaction((txn) async {
-                  final eggs = await txn.query('eggs', where: 'account = ? AND status != ?', whereArgs: [acc.name, '已售出']);
-                  for (var e in eggs) { await txn.update('eggs', {'father_id': null, 'mother_id': null}, where: 'id = ?', whereArgs: [e['id']]); }
-                  await txn.delete('parents', where: 'account = ?', whereArgs: [acc.name]);
-                  await txn.delete('pairings', where: 'account = ?', whereArgs: [acc.name]);
-                  await txn.delete('production_lines', where: 'account_name = ?', whereArgs: [acc.name]);
-                  await txn.delete('accounts', where: 'id = ?', whereArgs: [acc.id]);
-                });
-                if (mounted) Navigator.pop(c);
-                _loadAccounts();
-              }
-            }, 
-            child: const Text('删除账号', style: TextStyle(color: Colors.red))
-          ),
-          const Spacer(),
-          TextButton(onPressed: () => Navigator.pop(c), child: const Text('取消')),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameCtrl.text.isEmpty) return;
-              final db = await AppDatabase.instance.db;
-              final oldName = acc.name;
-              final newName = nameCtrl.text;
-              
-              await db.transaction((txn) async {
-                await txn.update('accounts', {'name': newName, 'account_id': idCtrl.text}, where: 'id = ?', whereArgs: [acc.id]);
-                if (oldName != newName) {
-                   await txn.update('parents', {'account': newName}, where: 'account = ?', whereArgs: [oldName]);
-                   await txn.update('pairings', {'account': newName}, where: 'account = ?', whereArgs: [oldName]);
-                   await txn.update('production_lines', {'account_name': newName}, where: 'account_name = ?', whereArgs: [oldName]);
-                   await txn.update('eggs', {'account': newName}, where: 'account = ?', whereArgs: [oldName]);
-                }
-              });
-              if (mounted) Navigator.pop(c);
-              _loadAccounts();
-            }, 
-            child: const Text('保存修改')
+          // 修复：用 Row 包裹，彻底解决 Spacer 导致的布局撑爆问题
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              TextButton(
+                onPressed: () async {
+                  final confirm = await showDialog<bool>(context: context, builder: (c2) => AlertDialog(
+                    title: Text('危险操作'), 
+                    content: Text('确定删除账号 "${acc.name}" 吗？\n该账号下的所有父母本、配对组、产线都将被彻底清除！在库的蛋会解除关联，已售出的保留历史。'), 
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(c2, false), child: const Text('取消')), 
+                      TextButton(onPressed: () => Navigator.pop(c2, true), child: const Text('确定删除', style: TextStyle(color: Colors.red)))
+                    ]
+                  ));
+                  
+                  if (confirm == true) {
+                    final db = await AppDatabase.instance.db;
+                    await db.transaction((txn) async {
+                      final eggs = await txn.query('eggs', where: 'account = ? AND status != ?', whereArgs: [acc.name, '已售出']);
+                      for (var e in eggs) { await txn.update('eggs', {'father_id': null, 'mother_id': null}, where: 'id = ?', whereArgs: [e['id']]); }
+                      await txn.delete('parents', where: 'account = ?', whereArgs: [acc.name]);
+                      await txn.delete('pairings', where: 'account = ?', whereArgs: [acc.name]);
+                      await txn.delete('production_lines', where: 'account_name = ?', whereArgs: [acc.name]);
+                      await txn.delete('accounts', where: 'id = ?', whereArgs: [acc.id]);
+                    });
+                    if (mounted) Navigator.pop(c);
+                    _loadAccounts();
+                  }
+                }, 
+                child: const Text('删除账号', style: TextStyle(color: Colors.red))
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextButton(onPressed: () => Navigator.pop(c), child: const Text('取消')),
+                  ElevatedButton(
+                    onPressed: () async {
+                      if (nameCtrl.text.isEmpty) return;
+                      final db = await AppDatabase.instance.db;
+                      final oldName = acc.name;
+                      final newName = nameCtrl.text;
+                      
+                      await db.transaction((txn) async {
+                        await txn.update('accounts', {'name': newName, 'account_id': idCtrl.text}, where: 'id = ?', whereArgs: [acc.id]);
+                        if (oldName != newName) {
+                           await txn.update('parents', {'account': newName}, where: 'account = ?', whereArgs: [oldName]);
+                           await txn.update('pairings', {'account': newName}, where: 'account = ?', whereArgs: [oldName]);
+                           await txn.update('production_lines', {'account_name': newName}, where: 'account_name = ?', whereArgs: [oldName]);
+                           await txn.update('eggs', {'account': newName}, where: 'account = ?', whereArgs: [oldName]);
+                        }
+                      });
+                      if (mounted) Navigator.pop(c);
+                      _loadAccounts();
+                    }, 
+                    child: const Text('保存修改')
+                  ),
+                ],
+              )
+            ],
           ),
         ],
       )
@@ -335,7 +345,6 @@ class _ParentEditPageState extends State<ParentEditPage> {
         TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: '精灵名字')),
         
         const SizedBox(height: 16),
-        // 修复问题 3：性别按钮化
         const Text('性别', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
         const SizedBox(height: 8),
         Row(children: [
@@ -345,7 +354,6 @@ class _ParentEditPageState extends State<ParentEditPage> {
         ]),
 
         const SizedBox(height: 16),
-        // 修复问题 3：外观按钮化（平铺展示，不顶屏幕）
         const Text('外观', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
         const SizedBox(height: 8),
         Wrap(
