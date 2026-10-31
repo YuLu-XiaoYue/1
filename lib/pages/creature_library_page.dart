@@ -14,6 +14,9 @@ class CreatureLibraryPage extends StatefulWidget {
 
 class CreatureLibraryPageState extends State<CreatureLibraryPage> {
   List<Creature> _creatures = [];
+  String _searchQuery = '';
+  Set<String> _filterGroups = {};
+  bool _filterMatchAll = false;
 
   @override
   void initState() { super.initState(); _load(); }
@@ -35,67 +38,159 @@ class CreatureLibraryPageState extends State<CreatureLibraryPage> {
     if (confirm == true) { final db = await AppDatabase.instance.db; await db.delete('creatures', where: 'id = ?', whereArgs: [id]); _load(); }
   }
 
+  void _showFilterDialog() {
+    Set<String> tempGroups = Set.from(_filterGroups);
+    bool tempMatchAll = _filterMatchAll;
+
+    showDialog(
+      context: context,
+      builder: (c) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Text('筛选精灵'),
+            content: SizedBox(
+              width: 300,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('满足条件：', style: TextStyle(fontWeight: FontWeight.bold)),
+                        DropdownButton<bool>(
+                          value: tempMatchAll,
+                          items: const [
+                            DropdownMenuItem(value: false, child: Text('满足其一 (或)')),
+                            DropdownMenuItem(value: true, child: Text('全部满足 (且)')),
+                          ],
+                          onChanged: (v) => setDialogState(() => tempMatchAll = v!),
+                        ),
+                      ],
+                    ),
+                    const Divider(),
+                    Wrap(
+                      spacing: 8, runSpacing: 8,
+                      children: eggGroupsList.map((g) {
+                        final isSel = tempGroups.contains(g);
+                        return FilterChip(
+                          label: Text(g),
+                          selected: isSel,
+                          onSelected: (v) {
+                            setDialogState(() {
+                              if (v) { tempGroups.add(g); } else { tempGroups.remove(g); }
+                            });
+                          },
+                        );
+                      }).toList(),
+                    )
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(c), child: const Text('取消')),
+              ElevatedButton(onPressed: () {
+                setState(() { _filterGroups = tempGroups; _filterMatchAll = tempMatchAll; });
+                Navigator.pop(c);
+              }, child: const Text('确定')),
+            ],
+          );
+        }
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    var visible = _creatures.where((c) {
+      bool matchSearch = _searchQuery.isEmpty || c.name.contains(_searchQuery);
+      bool matchGroup = true;
+      if (_filterGroups.isNotEmpty) {
+        if (_filterMatchAll) {
+          matchGroup = _filterGroups.every((g) => c.eggGroups.contains(g));
+        } else {
+          matchGroup = _filterGroups.any((g) => c.eggGroups.contains(g));
+        }
+      }
+      return matchSearch && matchGroup;
+    }).toList();
+
     return Scaffold(
-      body: _creatures.isEmpty ? const Center(child: Text('暂无精灵，点击右下角添加')) : LayoutBuilder(
-        builder: (context, constraints) {
-          int crossAxisCount = constraints.maxWidth > 800 ? 3 : 2;
-          return GridView.builder(
-            padding: const EdgeInsets.all(12),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: crossAxisCount,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.5, 
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: [
+                Expanded(child: TextField(onChanged: (v) => setState(() => _searchQuery = v), decoration: const InputDecoration(hintText: '搜索精灵名字', prefixIcon: Icon(Icons.search), isDense: true, border: OutlineInputBorder()))),
+                const SizedBox(width: 8),
+                IconButton(icon: Icon(Icons.filter_alt, color: _filterGroups.isNotEmpty ? Theme.of(context).colorScheme.primary : null), onPressed: _showFilterDialog),
+              ],
             ),
-            itemCount: _creatures.length,
-            itemBuilder: (context, i) {
-              final c = _creatures[i];
-              return GestureDetector(
-                onSecondaryTap: () => _deleteCreature(c.id!),
-                child: Slidable(
-                  key: ValueKey(c.id),
-                  endActionPane: ActionPane(
-                    motion: const ScrollMotion(), extentRatio: 0.25,
-                    children: [SlidableAction(onPressed: (_) => _deleteCreature(c.id!), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')],
+          ),
+          Expanded(
+            child: visible.isEmpty ? const Center(child: Text('暂无数据')) : LayoutBuilder(
+              builder: (context, constraints) {
+                int crossAxisCount = constraints.maxWidth > 800 ? 3 : 2;
+                return GridView.builder(
+                  padding: const EdgeInsets.all(12),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossAxisCount,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 1.5, 
                   ),
-                  child: Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: () async {
-                        await Navigator.push(context, MaterialPageRoute(builder: (_) => CreatureEditPage(creature: c)));
-                        _load();
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                getLocalImage(c.iconPath, 'egg_icons', size: 40, fallbackIcon: Icons.pets),
-                                const SizedBox(width: 12),
-                                Expanded(child: Text(c.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
-                              ],
+                  itemCount: visible.length,
+                  itemBuilder: (context, i) {
+                    final c = visible[i];
+                    return GestureDetector(
+                      onSecondaryTap: () => _deleteCreature(c.id!),
+                      child: Slidable(
+                        key: ValueKey(c.id),
+                        endActionPane: ActionPane(
+                          motion: const ScrollMotion(), extentRatio: 0.25,
+                          children: [SlidableAction(onPressed: (_) => _deleteCreature(c.id!), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')],
+                        ),
+                        child: Card(
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () async {
+                              await Navigator.push(context, MaterialPageRoute(builder: (_) => CreatureEditPage(creature: c)));
+                              _load();
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      getLocalImage(c.iconPath, 'egg_icons', size: 40, fallbackIcon: Icons.pets),
+                                      const SizedBox(width: 12),
+                                      Expanded(child: Text(c.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
+                                    ],
+                                  ),
+                                  const Spacer(),
+                                  Wrap(
+                                    spacing: 8, runSpacing: 8,
+                                    children: c.eggGroups.map((g) => Chip(label: Text(g, style: const TextStyle(fontSize: 10)), backgroundColor: Colors.grey.shade100)).toList(),
+                                  )
+                                ],
+                              ),
                             ),
-                            const Spacer(),
-                            Wrap(
-                              spacing: 8, runSpacing: 8,
-                              children: c.eggGroups.map((g) => Chip(label: Text(g, style: const TextStyle(fontSize: 10)), backgroundColor: Colors.grey.shade100)).toList(),
-                            )
-                          ],
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          );
-        },
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 24, right: 8),
