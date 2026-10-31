@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:file_picker/file_picker.dart';
+import 'dart:io'; // <--- 补上了这个，用来读取本地文件
 import '../db/database.dart';
 import '../models/models.dart';
 
@@ -257,8 +258,14 @@ class ParentPageState extends State<ParentPage> {
                     onSecondaryTap: () => _deleteParent(p),
                     child: Slidable(
                       key: ValueKey(p.id),
-                      extentRatio: 0.25, 
-                      endActionPane: ActionPane(motion: const ScrollMotion(), children: [SlidableAction(onPressed: (_) => _deleteParent(p), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')]),
+                      // 注意这里，extentRatio 已经移到了 ActionPane 里
+                      endActionPane: ActionPane(
+                        motion: const ScrollMotion(), 
+                        extentRatio: 0.25, 
+                        children: [
+                          SlidableAction(onPressed: (_) => _deleteParent(p), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')
+                        ]
+                      ),
                       child: buildParentCard(
                         context,
                         p, p.gender == '母本',
