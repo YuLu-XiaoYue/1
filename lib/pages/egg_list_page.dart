@@ -69,6 +69,41 @@ class EggListPageState extends State<EggListPage> {
     if (confirm == true) { final db = await AppDatabase.instance.db; await db.delete('eggs', where: 'id = ?', whereArgs: [id]); _loadData(); }
   }
 
+  // 居中弹窗选择器，解决图7遮挡问题
+  void _showAlertPicker(String title, List<String> items, String current, Function(String) onSelect) {
+    showDialog(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(title, style: const TextStyle(fontSize: 18), textAlign: TextAlign.center),
+        contentPadding: const EdgeInsets.only(top: 16, bottom: 0),
+        content: SizedBox(
+          width: 300,
+          child: ListView.builder(
+            shrinkWrap: true, itemCount: items.length,
+            itemBuilder: (context, i) => InkWell(
+              onTap: () { onSelect(items[i]); Navigator.pop(c); },
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: Text(items[i], style: const TextStyle(fontSize: 16), textAlign: TextAlign.center),
+                  ),
+                  if (current == items[i])
+                    Positioned(
+                      right: 16,
+                      child: Icon(Icons.check, color: Theme.of(context).colorScheme.primary),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        actions: [ Center(child: TextButton(onPressed: () => Navigator.pop(c), child: const Text('取消'))) ],
+      ),
+    );
+  }
+
   void _showFilterDialog() {
     Set<String> tempTags = Set.from(_filterTags);
     bool tempMatchAll = _filterMatchAll;
@@ -90,19 +125,17 @@ class EggListPageState extends State<EggListPage> {
                   children: [
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: DropdownButtonFormField<String>(
-                        value: tempAcc, isExpanded: true, decoration: const InputDecoration(labelText: '按账号筛选'),
-                        items: [const DropdownMenuItem(value: '全部', child: Text('全部账号')), ..._accounts.map((a) => DropdownMenuItem(value: a.name, child: Text(a.name)))],
-                        onChanged: (v) => setDialogState(() { tempAcc = v!; tempLine = '全部'; }),
+                      child: InkWell(
+                        onTap: () => _showAlertPicker('按账号筛选', ['全部', ..._accounts.map((a) => a.name)], tempAcc, (v) { setDialogState(() { tempAcc = v; tempLine = '全部'; }); }),
+                        child: InputDecorator(decoration: const InputDecoration(labelText: '按账号筛选', suffixIcon: Icon(Icons.arrow_drop_down)), child: Text(tempAcc)),
                       ),
                     ),
                     const SizedBox(height: 12),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: DropdownButtonFormField<String>(
-                        value: tempLine, isExpanded: true, decoration: const InputDecoration(labelText: '按产线筛选'),
-                        items: [const DropdownMenuItem(value: '全部', child: Text('全部产线')), ..._lines.where((l) => tempAcc == '全部' || l.accountName == tempAcc).map((l) => DropdownMenuItem(value: l.name, child: Text(l.name)))],
-                        onChanged: (v) => setDialogState(() => tempLine = v!),
+                      child: InkWell(
+                        onTap: () => _showAlertPicker('按产线筛选', ['全部', ..._lines.where((l) => tempAcc == '全部' || l.accountName == tempAcc).map((l) => l.name)], tempLine, (v) { setDialogState(() => tempLine = v); }),
+                        child: InputDecorator(decoration: const InputDecoration(labelText: '按产线筛选', suffixIcon: Icon(Icons.arrow_drop_down)), child: Text(tempLine)),
                       ),
                     ),
                     const Divider(height: 32),
@@ -194,6 +227,29 @@ class EggListPageState extends State<EggListPage> {
     );
   }
 
+  // 核心修复图11：重置列表内的文字排列
+  String _buildSubtitle(Egg e) {
+    String priceStr = e.price != null ? '标价:${e.price}' : '标价:-';
+    String dateStr = '收取:${e.obtainedDate}';
+    String nestStr = e.nestType;
+    
+    // 构造奖牌字符串
+    List<String> mList = [];
+    if (e.medals.isNotEmpty) {
+      mList.addAll(e.medals);
+    }
+    String medalStr = mList.isNotEmpty ? mList.join('、') : '无奖牌';
+    
+    if (widget.viewType != '在库/预定') {
+      String buyer = e.buyerPlatformName ?? e.buyerGameName ?? '无';
+      if (buyer.isEmpty) buyer = '无';
+      String afterSales = e.isAfterSales ? ' [已售后]' : '';
+      return '$priceStr | $dateStr | $nestStr\n奖牌: $medalStr\n买家: $buyer$afterSales';
+    }
+    
+    return '$priceStr | $dateStr | $nestStr\n奖牌: $medalStr';
+  }
+
   @override
   Widget build(BuildContext context) {
     var visible = _eggs.where((e) {
@@ -270,10 +326,7 @@ class EggListPageState extends State<EggListPage> {
       itemBuilder: (context, i) {
         final e = list[i];
         final statusColor = e.status == '在库' ? Colors.green : (e.status == '需售后' ? Colors.orange : Colors.grey);
-        String buyerText = e.buyerPlatformName ?? e.buyerGameName ?? '无';
-        if (buyerText.isEmpty) buyerText = '无';
-        String afterSalesTag = (e.isAfterSales && widget.viewType != '售后订单') ? ' | 已售后' : '';
-        String subtitleText = widget.viewType != '在库/预定' ? '买家: $buyerText$afterSalesTag' : '收取: ${e.obtainedDate} | 标价:${e.price ?? "-"}';
+        String subtitleText = _buildSubtitle(e);
 
         return GestureDetector(
           onSecondaryTap: () => _deleteEgg(e.id!),
@@ -287,8 +340,9 @@ class EggListPageState extends State<EggListPage> {
             child: InkWell(
               onTap: () async { await Navigator.push(context, MaterialPageRoute(builder: (_) => EggEditPage(egg: e))); _loadData(); },
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     SizedBox(width: 24, child: Text('${i + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey))),
                     const SizedBox(width: 8),
@@ -300,7 +354,7 @@ class EggListPageState extends State<EggListPage> {
                         children: [
                           Text('${e.name}  ${e.weight}kg', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
                           const SizedBox(height: 4),
-                          Text(subtitleText, style: const TextStyle(fontSize: 13, color: Colors.grey)),
+                          Text(subtitleText, style: const TextStyle(fontSize: 12, color: Colors.grey, height: 1.4)),
                         ],
                       ),
                     ),
@@ -331,11 +385,7 @@ class EggListPageState extends State<EggListPage> {
               children: [
                 Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), color: Colors.grey.shade200, child: Text(letter, style: const TextStyle(fontWeight: FontWeight.bold))),
                 ...groups[letter]!.map((e) {
-                  String buyerText = e.buyerPlatformName ?? e.buyerGameName ?? '无';
-                  if (buyerText.isEmpty) buyerText = '无';
-                  String afterSalesTag = (e.isAfterSales && widget.viewType != '售后订单') ? ' | 已售后' : '';
-                  String subtitleText = '买家: $buyerText$afterSalesTag';
-
+                  String subtitleText = _buildSubtitle(e);
                   return GestureDetector(
                     onSecondaryTap: () => _deleteEgg(e.id!),
                     child: Slidable(
@@ -348,8 +398,9 @@ class EggListPageState extends State<EggListPage> {
                       child: InkWell(
                         onTap: () async { await Navigator.push(context, MaterialPageRoute(builder: (_) => EggEditPage(egg: e))); _loadData(); },
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               _buildEggIconWithBadges(e),
                               const SizedBox(width: 16),
@@ -359,7 +410,7 @@ class EggListPageState extends State<EggListPage> {
                                   children: [
                                     Text('${e.name}  ${e.weight}kg', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
                                     const SizedBox(height: 4),
-                                    Text(subtitleText, style: const TextStyle(fontSize: 13, color: Colors.grey)),
+                                    Text(subtitleText, style: const TextStyle(fontSize: 12, color: Colors.grey, height: 1.4)),
                                   ],
                                 ),
                               ),
@@ -418,7 +469,7 @@ class _EggEditPageState extends State<EggEditPage> {
   
   int? _pairingId;
   int? _lineId; 
-  List<String> _eggGroups = []; // 自动带出的蛋组
+  List<String> _eggGroups = []; 
   
   List<Account> _accounts = [];
   List<ProductionLine> _lines = [];
@@ -513,7 +564,7 @@ class _EggEditPageState extends State<EggEditPage> {
     if (mounted) Navigator.pop(context);
   }
 
-  void _showAlertPicker(String title, List<String> items, String? current, Function(String) onSelect) {
+  void _showAlertPicker(String title, List<String> items, String current, Function(String) onSelect) {
     showDialog(
       context: context,
       builder: (c) => AlertDialog(
@@ -543,9 +594,7 @@ class _EggEditPageState extends State<EggEditPage> {
             ),
           ),
         ),
-        actions: [
-          Center(child: TextButton(onPressed: () => Navigator.pop(c), child: const Text('取消'))),
-        ],
+        actions: [ Center(child: TextButton(onPressed: () => Navigator.pop(c), child: const Text('取消'))) ],
       ),
     );
   }
@@ -592,10 +641,11 @@ class _EggEditPageState extends State<EggEditPage> {
           ),
 
         const SizedBox(height: 16),
+        // 核心修复图1：选过产线后，窝类型不可修改
         Row(children: [
-          Expanded(child: _buildNestButton('普窝', isReadOnly)),
+          Expanded(child: _buildNestButton('普窝', isReadOnly || _nameCtrl.text.isNotEmpty)),
           const SizedBox(width: 16),
-          Expanded(child: _buildNestButton('绿窝', isReadOnly)),
+          Expanded(child: _buildNestButton('绿窝', isReadOnly || _nameCtrl.text.isNotEmpty)),
         ]),
 
         const SizedBox(height: 16),
@@ -683,11 +733,11 @@ class _EggEditPageState extends State<EggEditPage> {
         padding: const EdgeInsets.symmetric(vertical: 16),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: isSelected ? Colors.green.shade50 : Colors.white,
-          border: Border.all(color: isSelected ? Colors.green : Colors.grey.shade300, width: 2),
+          color: isSelected ? (isReadOnly ? Colors.grey.shade300 : Colors.green.shade50) : Colors.white,
+          border: Border.all(color: isSelected ? (isReadOnly ? Colors.grey : Colors.green) : Colors.grey.shade300, width: 2),
           borderRadius: BorderRadius.circular(16),
         ),
-        child: Text(type, style: TextStyle(color: isSelected ? Colors.green.shade800 : Colors.grey, fontWeight: FontWeight.bold)),
+        child: Text(type, style: TextStyle(color: isSelected ? (isReadOnly ? Colors.grey.shade700 : Colors.green.shade800) : Colors.grey, fontWeight: FontWeight.bold)),
       ),
     );
   }
