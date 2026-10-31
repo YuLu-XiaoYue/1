@@ -139,7 +139,6 @@ class _CreatureEditPageState extends State<CreatureEditPage> {
   }
 
   void _showGroupSelector() {
-    // 核心修复：把 selected 移到外面，防止每次刷新被重置
     List<String> selected = List.from(_eggGroups); 
     
     showDialog(context: context, builder: (c) => StatefulBuilder(
@@ -159,8 +158,15 @@ class _CreatureEditPageState extends State<CreatureEditPage> {
               onTap: () => toggle(g),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(color: isSel ? Colors.green.shade100 : Colors.white, border: Border.all(color: isSel ? Colors.green : Colors.grey.shade300), borderRadius: BorderRadius.circular(8)),
-                child: Text(g, style: TextStyle(color: isSel ? Colors.green.shade800 : Colors.black)),
+                decoration: BoxDecoration(
+                  color: isSel ? Colors.green.shade600 : Colors.white, 
+                  border: Border.all(color: isSel ? Colors.green.shade800 : Colors.grey.shade300), 
+                  borderRadius: BorderRadius.circular(8)
+                ),
+                child: Text(g, style: TextStyle(
+                  color: isSel ? Colors.white : Colors.black,
+                  fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                )),
               ),
             );
           }).toList()))),
