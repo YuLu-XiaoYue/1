@@ -113,7 +113,7 @@ class _BlacklistPageState extends State<BlacklistPage> {
                               onSecondaryTap: () => _deleteItem(b.id!),
                               child: Slidable(
                                 key: ValueKey(b.id),
-                                extentRatio: 0.25, // 控制滑开比例
+                                extentRatio: 0.25, 
                                 endActionPane: ActionPane(motion: const ScrollMotion(), children: [
                                   SlidableAction(onPressed: (_) => _deleteItem(b.id!), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')
                                 ]),
@@ -155,7 +155,6 @@ class _BlacklistPageState extends State<BlacklistPage> {
           ),
         ],
       ),
-      // 调整悬浮按钮的位置
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 24, right: 8),
         child: FloatingActionButton(onPressed: _showAddDialog, child: const Icon(Icons.add)),
