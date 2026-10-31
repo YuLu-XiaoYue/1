@@ -113,10 +113,14 @@ class _BlacklistPageState extends State<BlacklistPage> {
                               onSecondaryTap: () => _deleteItem(b.id!),
                               child: Slidable(
                                 key: ValueKey(b.id),
-                                extentRatio: 0.25, 
-                                endActionPane: ActionPane(motion: const ScrollMotion(), children: [
-                                  SlidableAction(onPressed: (_) => _deleteItem(b.id!), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')
-                                ]),
+                                // 注意这里，extentRatio 不在 Slidable 里，而是在 ActionPane 里
+                                endActionPane: ActionPane(
+                                  motion: const ScrollMotion(), 
+                                  extentRatio: 0.25, // <--- 移到了这里
+                                  children: [
+                                    SlidableAction(onPressed: (_) => _deleteItem(b.id!), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')
+                                  ]
+                                ),
                                 child: ListTile(
                                   title: Text(b.buyerName, style: const TextStyle(fontWeight: FontWeight.bold)),
                                   subtitle: Text('平台: ${b.platform} | 平台ID: ${b.platformId}\n游戏ID: ${b.gameId} | 原因: ${b.reason ?? "无"}'),
