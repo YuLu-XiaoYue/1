@@ -35,7 +35,6 @@ class EggListPageState extends State<EggListPage> {
   String _sortType = '时间由近到远';
   final List<String> _sortTypes = ['时间由近到远', '时间由远到近', '蛋重高到低', '蛋重低到高'];
   
-  // 筛选条件
   Set<String> _filterTags = {}; 
   bool _filterMatchAll = false;
   String _filterAccount = '全部';
@@ -98,13 +97,8 @@ class EggListPageState extends State<EggListPage> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: DropdownButtonFormField<String>(
-                        value: tempAcc,
-                        isExpanded: true,
-                        decoration: const InputDecoration(labelText: '按账号筛选'),
-                        items: [
-                          const DropdownMenuItem(value: '全部', child: Text('全部账号')),
-                          ..._accounts.map((a) => DropdownMenuItem(value: a.name, child: Text(a.name)))
-                        ],
+                        value: tempAcc, isExpanded: true, decoration: const InputDecoration(labelText: '按账号筛选'),
+                        items: [const DropdownMenuItem(value: '全部', child: Text('全部账号')), ..._accounts.map((a) => DropdownMenuItem(value: a.name, child: Text(a.name)))],
                         onChanged: (v) => setDialogState(() { tempAcc = v!; tempLine = '全部'; }),
                       ),
                     ),
@@ -112,13 +106,8 @@ class EggListPageState extends State<EggListPage> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: DropdownButtonFormField<String>(
-                        value: tempLine,
-                        isExpanded: true,
-                        decoration: const InputDecoration(labelText: '按产线筛选'),
-                        items: [
-                          const DropdownMenuItem(value: '全部', child: Text('全部产线')),
-                          ..._lines.where((l) => tempAcc == '全部' || l.accountName == tempAcc).map((l) => DropdownMenuItem(value: l.name, child: Text(l.name)))
-                        ],
+                        value: tempLine, isExpanded: true, decoration: const InputDecoration(labelText: '按产线筛选'),
+                        items: [const DropdownMenuItem(value: '全部', child: Text('全部产线')), ..._lines.where((l) => tempAcc == '全部' || l.accountName == tempAcc).map((l) => DropdownMenuItem(value: l.name, child: Text(l.name)))],
                         onChanged: (v) => setDialogState(() => tempLine = v!),
                       ),
                     ),
@@ -131,10 +120,7 @@ class EggListPageState extends State<EggListPage> {
                           const Text('特征条件组合：', style: TextStyle(fontWeight: FontWeight.bold)),
                           DropdownButton<bool>(
                             value: tempMatchAll,
-                            items: const [
-                              DropdownMenuItem(value: false, child: Text('满足其一 (或)')),
-                              DropdownMenuItem(value: true, child: Text('全部满足 (且)')),
-                            ],
+                            items: const [DropdownMenuItem(value: false, child: Text('满足其一 (或)')), DropdownMenuItem(value: true, child: Text('全部满足 (且)'))],
                             onChanged: (v) => setDialogState(() => tempMatchAll = v!),
                           ),
                         ],
@@ -152,29 +138,20 @@ class EggListPageState extends State<EggListPage> {
                     ),
                     CheckboxListTile(
                       value: tempTags.contains('绿窝'),
-                      title: Row(children: [
-                        Image.asset('assets/nest_types/green_nest.png', width: 20, height: 20, errorBuilder: (c,e,s) => const Icon(Icons.eco, size: 20, color: Colors.green)),
-                        const SizedBox(width: 8), const Text('绿窝'),
-                      ]),
+                      title: Row(children: [Image.asset('assets/nest_types/green_nest.png', width: 20, height: 20, errorBuilder: (c,e,s) => const Icon(Icons.eco, size: 20, color: Colors.green)), const SizedBox(width: 8), const Text('绿窝')]),
                       onChanged: (v) => setDialogState(() { if (v!) { tempTags.add('绿窝'); } else { tempTags.remove('绿窝'); } }),
                       controlAffinity: ListTileControlAffinity.trailing,
                     ),
                     const Divider(),
                     ...sizeMedals.map((m) => CheckboxListTile(
                       value: tempTags.contains(m),
-                      title: Row(children: [
-                        Image.asset('assets/medals/${medalIconMap[m] ?? m}.png', width: 20, height: 20, errorBuilder: (c,e,s) => const Icon(Icons.military_tech, size: 20, color: Colors.grey)),
-                        const SizedBox(width: 8), Text(m),
-                      ]),
+                      title: Row(children: [Image.asset('assets/medals/${medalIconMap[m] ?? m}.png', width: 20, height: 20, errorBuilder: (c,e,s) => const Icon(Icons.military_tech, size: 20, color: Colors.grey)), const SizedBox(width: 8), Text(m)]),
                       onChanged: (v) => setDialogState(() { if (v!) { tempTags.add(m); } else { tempTags.remove(m); } }),
                       controlAffinity: ListTileControlAffinity.trailing,
                     )),
                     ...voiceMedals.map((m) => CheckboxListTile(
                       value: tempTags.contains(m),
-                      title: Row(children: [
-                        Image.asset('assets/medals/${medalIconMap[m] ?? m}.png', width: 20, height: 20, errorBuilder: (c,e,s) => const Icon(Icons.military_tech, size: 20, color: Colors.grey)),
-                        const SizedBox(width: 8), Text(m),
-                      ]),
+                      title: Row(children: [Image.asset('assets/medals/${medalIconMap[m] ?? m}.png', width: 20, height: 20, errorBuilder: (c,e,s) => const Icon(Icons.military_tech, size: 20, color: Colors.grey)), const SizedBox(width: 8), Text(m)]),
                       onChanged: (v) => setDialogState(() { if (v!) { tempTags.add(m); } else { tempTags.remove(m); } }),
                       controlAffinity: ListTileControlAffinity.trailing,
                     )),
@@ -184,18 +161,7 @@ class EggListPageState extends State<EggListPage> {
             ),
             actions: [
               TextButton(onPressed: () => Navigator.pop(c), child: const Text('取消')),
-              ElevatedButton(
-                onPressed: () {
-                  setState(() {
-                    _filterTags = tempTags;
-                    _filterMatchAll = tempMatchAll;
-                    _filterAccount = tempAcc;
-                    _filterLine = tempLine;
-                  });
-                  Navigator.pop(c);
-                }, 
-                child: const Text('确定筛选')
-              ),
+              ElevatedButton(onPressed: () { setState(() { _filterTags = tempTags; _filterMatchAll = tempMatchAll; _filterAccount = tempAcc; _filterLine = tempLine; }); Navigator.pop(c); }, child: const Text('确定筛选')),
             ],
           );
         }
@@ -319,8 +285,12 @@ class EggListPageState extends State<EggListPage> {
           onSecondaryTap: () => _deleteEgg(e.id!),
           child: Slidable(
             key: ValueKey(e.id),
-            extentRatio: 0.25, 
-            endActionPane: ActionPane(motion: const ScrollMotion(), children: [SlidableAction(onPressed: (_) => _deleteEgg(e.id!), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')]),
+            // === 核心修复：extentRatio 移到了 ActionPane 里 ===
+            endActionPane: ActionPane(
+              motion: const ScrollMotion(), 
+              extentRatio: 0.25, 
+              children: [SlidableAction(onPressed: (_) => _deleteEgg(e.id!), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')]
+            ),
             child: InkWell(
               onTap: () async { await Navigator.push(context, MaterialPageRoute(builder: (_) => EggEditPage(egg: e))); _loadData(); },
               child: Padding(
@@ -377,8 +347,12 @@ class EggListPageState extends State<EggListPage> {
                     onSecondaryTap: () => _deleteEgg(e.id!),
                     child: Slidable(
                       key: ValueKey(e.id),
-                      extentRatio: 0.25, 
-                      endActionPane: ActionPane(motion: const ScrollMotion(), children: [SlidableAction(onPressed: (_) => _deleteEgg(e.id!), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')]),
+                      // === 核心修复：extentRatio 移到了 ActionPane 里 ===
+                      endActionPane: ActionPane(
+                        motion: const ScrollMotion(), 
+                        extentRatio: 0.25, 
+                        children: [SlidableAction(onPressed: (_) => _deleteEgg(e.id!), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')]
+                      ),
                       child: InkWell(
                         onTap: () async { await Navigator.push(context, MaterialPageRoute(builder: (_) => EggEditPage(egg: e))); _loadData(); },
                         child: Padding(
@@ -433,7 +407,6 @@ class EggListPageState extends State<EggListPage> {
   }
 }
 
-// ================= 录入/编辑精灵蛋 =================
 class EggEditPage extends StatefulWidget {
   final Egg? egg;
   const EggEditPage({super.key, this.egg});
@@ -490,7 +463,6 @@ class _EggEditPageState extends State<EggEditPage> {
     final weight = double.tryParse(weightStr);
     if (weight == null || _lineId == null) { setState(() => _isOutOfRange = false); return; }
     final db = await AppDatabase.instance.db;
-    // 查产线绑定的区间表
     final rules = await db.query('line_price_rules', where: 'line_id = ?', whereArgs: [_lineId]);
     for (var r in rules) {
       if (weight >= (r['min_weight'] as double) && weight <= (r['max_weight'] as double)) {
@@ -513,10 +485,8 @@ class _EggEditPageState extends State<EggEditPage> {
 
     final db = await AppDatabase.instance.db;
     
-    // 图片同步
     String? finalPath = await syncEggImage(_nameCtrl.text, _tempSelectedImagePath, widget.egg?.iconPath);
     
-    // 父母本快照 (如果选了产线，就存产线关联的配对组快照)
     String? fatherName, motherName;
     if (widget.egg != null && _isParentLocked) {
       fatherName = widget.egg!.fatherNameSnapshot; motherName = widget.egg!.motherNameSnapshot;
@@ -555,7 +525,6 @@ class _EggEditPageState extends State<EggEditPage> {
         ]),
         const SizedBox(height: 16),
         
-        // 选产线，自动带出信息
         DropdownButtonFormField<int>(
           value: _lineId,
           decoration: const InputDecoration(labelText: '选择产线 (自动填充蛋名/性格)'),
@@ -665,7 +634,7 @@ class _EggEditPageState extends State<EggEditPage> {
     return InkWell(
       onTap: isReadOnly ? null : () {
         setState(() => _nestType = type);
-        _autoFillPrice(_weightCtrl.text); // 切换窝类型后，重新匹配价格
+        _autoFillPrice(_weightCtrl.text);
       },
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
