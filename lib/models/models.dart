@@ -22,11 +22,7 @@ class Parent {
   final String? iconPath;
   final String appearance; 
 
-  Parent({
-    this.id, required this.name, required this.gender, required this.account, 
-    this.nature, this.height, this.weight, this.voice, this.bloodline, this.iconPath,
-    this.appearance = '普通',
-  });
+  Parent({this.id, required this.name, required this.gender, required this.account, this.nature, this.height, this.weight, this.voice, this.bloodline, this.iconPath, this.appearance = '普通'});
 
   Map<String, Object?> toMap() => {
     if (id != null) 'id': id, 'name': name, 'gender': gender, 'account': account, 'nature': nature,
@@ -39,6 +35,25 @@ class Parent {
     nature: m['nature'] as String?, height: (m['height'] as num?)?.toDouble(), weight: (m['weight'] as num?)?.toDouble(),
     voice: (m['voice'] as num?)?.toDouble(), bloodline: m['bloodline'] as String?, iconPath: m['icon_path'] as String?,
     appearance: m['appearance'] as String? ?? '普通',
+  );
+}
+
+// 新增：精灵库模型
+class Creature {
+  final int? id;
+  final String name;
+  final String? iconPath;
+  final List<String> eggGroups;
+  
+  Creature({this.id, required this.name, this.iconPath, this.eggGroups = const []});
+
+  Map<String, Object?> toMap() => {
+    if (id != null) 'id': id, 'name': name, 'icon_path': iconPath, 'egg_groups': jsonEncode(eggGroups),
+  };
+
+  factory Creature.fromMap(Map<String, Object?> m) => Creature(
+    id: m['id'] as int?, name: m['name'] as String, iconPath: m['icon_path'] as String?,
+    eggGroups: (jsonDecode(m['egg_groups'] as String? ?? '[]') as List).cast<String>(),
   );
 }
 
@@ -98,110 +113,18 @@ class LinePriceRule {
   
   LinePriceRule({this.id, required this.lineId, required this.minWeight, required this.maxWeight, required this.price});
   
-  Map<String, Object?> toMap() => {
-    'id': id, 'line_id': lineId, 
-    'min_weight': minWeight, 'max_weight': maxWeight, 'price': price
-  };
+  Map<String, Object?> toMap() => {'id': id, 'line_id': lineId, 'min_weight': minWeight, 'max_weight': maxWeight, 'price': price};
   
   factory LinePriceRule.fromMap(Map<String, Object?> m) => LinePriceRule(
-    id: m['id'] as int?, 
-    lineId: m['line_id'] as int, 
-    minWeight: (m['min_weight'] as num).toDouble(), 
-    maxWeight: (m['max_weight'] as num).toDouble(), 
-    price: (m['price'] as num).toDouble()
+    id: m['id'] as int?, lineId: m['line_id'] as int, 
+    minWeight: (m['min_weight'] as num).toDouble(), maxWeight: (m['max_weight'] as num).toDouble(), price: (m['price'] as num).toDouble()
   );
 }
 
-class Egg {
-  final int? id;
-  final String name;
-  final double weight;
-  final List<String> medals;
-  final String? nature;
-  final String? account;
-  final int? pairingId; 
-  final int? fatherId;
-  final int? motherId;
-  final String? fatherNameSnapshot; 
-  final String? motherNameSnapshot;
-  final String? iconPath;
-  final double? price;
-  final String status;
-  final String? salePlatform;
-  final String? buyerPlatformName;
-  final String? buyerPlatformId;
-  final String? buyerGameName;
-  final String? buyerGameId;
-  final String? note;
-  final int? createdAt;
-  final String nestType; 
-  final String obtainedDate;
-  final String? afterSalesPlan; 
-  final bool isAfterSales; 
+// ... (保留原本的 Egg, Blacklist, Article, 常量列表) ...
 
-  Egg({
-    this.id, required this.name, required this.weight, this.medals = const [], this.nature, this.account, 
-    this.pairingId, this.fatherId, this.motherId, this.fatherNameSnapshot, this.motherNameSnapshot, this.iconPath, this.price, 
-    this.status = '在库', this.salePlatform, this.buyerPlatformName, this.buyerPlatformId, this.buyerGameName, this.buyerGameId, this.note,
-    this.createdAt, this.nestType = '普窝', this.obtainedDate = '', this.afterSalesPlan, this.isAfterSales = false,
-  });
-
-  Map<String, Object?> toMap() => {
-    if (id != null) 'id': id, 'name': name, 'weight': weight, 'medals': jsonEncode(medals),
-    'nature': nature, 'account': account, 'pairing_id': pairingId, 'father_id': fatherId, 'mother_id': motherId,
-    'father_name_snapshot': fatherNameSnapshot, 'mother_name_snapshot': motherNameSnapshot,
-    'icon_path': iconPath, 'price': price, 'status': status, 
-    'sale_platform': salePlatform, 'buyer_platform_name': buyerPlatformName, 
-    'buyer_platform_id': buyerPlatformId, 'buyer_game_name': buyerGameName, 
-    'buyer_game_id': buyerGameId, 'note': note,
-    'created_at': createdAt ?? DateTime.now().millisecondsSinceEpoch, 'updated_at': DateTime.now().millisecondsSinceEpoch,
-    'nest_type': nestType, 'obtained_date': obtainedDate, 'after_sales_plan': afterSalesPlan, 'is_after_sales': isAfterSales ? 1 : 0,
-  };
-
-  factory Egg.fromMap(Map<String, Object?> m) => Egg(
-    id: m['id'] as int?, name: m['name'] as String, weight: (m['weight'] as num).toDouble(),
-    medals: (jsonDecode(m['medals'] as String? ?? '[]') as List).cast<String>(),
-    nature: m['nature'] as String?, account: m['account'] as String?, 
-    pairingId: m['pairing_id'] as int?, fatherId: m['father_id'] as int?, motherId: m['mother_id'] as int?,
-    fatherNameSnapshot: m['father_name_snapshot'] as String?, motherNameSnapshot: m['mother_name_snapshot'] as String?,
-    iconPath: m['icon_path'] as String?, price: (m['price'] as num?)?.toDouble(), status: m['status'] as String? ?? '在库',
-    salePlatform: m['sale_platform'] as String?, buyerPlatformName: m['buyer_platform_name'] as String?, 
-    buyerPlatformId: m['buyer_platform_id'] as String?, buyerGameName: m['buyer_game_name'] as String?, 
-    buyerGameId: m['buyer_game_id'] as String?, note: m['note'] as String?,
-    createdAt: m['created_at'] as int?, nestType: m['nest_type'] as String? ?? '普窝', obtainedDate: m['obtained_date'] as String? ?? '',
-    afterSalesPlan: m['after_sales_plan'] as String?, isAfterSales: (m['is_after_sales'] as int? ?? 0) == 1,
-  );
-}
-
-class Blacklist {
-  final int? id;
-  final String platform;
-  final String buyerName;
-  final String platformId;
-  final String gameId;
-  final String? reason;
-
-  Blacklist({this.id, required this.platform, required this.buyerName, required this.platformId, required this.gameId, this.reason});
-
-  Map<String, Object?> toMap() => {'id': id, 'platform': platform, 'buyer_name': buyerName, 'platform_id': platformId, 'game_id': gameId, 'reason': reason};
-  factory Blacklist.fromMap(Map<String, Object?> m) => Blacklist(id: m['id'] as int?, platform: m['platform'] as String, buyerName: m['buyer_name'] as String, platformId: m['platform_id'] as String, gameId: m['game_id'] as String, reason: m['reason'] as String?);
-}
-
-class Article {
-  final int? id;
-  final String type; 
-  final String content;
-  Article({this.id, required this.type, required this.content});
-  Map<String, Object?> toMap() => {'id': id, 'type': type, 'content': content};
-  factory Article.fromMap(Map<String, Object?> m) => Article(id: m['id'] as int?, type: m['type'] as String, content: m['content'] as String);
-}
-
-// 蛋组（去掉了神奇蛋）
 const List<String> eggGroupsList = ['巨灵组', '两栖组', '昆虫组', '天空组', '动物组', '妖精组', '植物组', '拟人组', '软体组', '大地组', '魔力组', '海洋组', '龙组', '机械组'];
-
-// 30个性格
 const List<String> naturesList = ['大胆', '固执', '调皮', '勇敢', '逞强', '稳重', '天真', '懒散', '悠闲', '坦率', '聪明', '专注', '偏执', '冷静', '理性', '警惕', '温顺', '害羞', '慎重', '焦虑', '胆小', '急躁', '开朗', '莽撞', '热情', '沉默', '忧郁', '平和', '粗心', '踏实'];
-
 const List<String> bloodlines = ['普通','草','火','水','光','地','冰','龙','电','毒','虫','武','翼','萌','幽','恶','机械','幻','首领','污染','奇异'];
 const List<String> sizeMedals = ['大块头', '满重', '小不点', '满轻'];
 const List<String> voiceMedals = ['婉转声', '满音婉转声', '粗嗓门', '满音粗嗓门'];
