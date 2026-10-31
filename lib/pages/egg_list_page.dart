@@ -94,6 +94,7 @@ class EggListPageState extends State<EggListPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // 账号和产线筛选使用弹窗内部简单的下拉（因为弹窗空间足够）
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: DropdownButtonFormField<String>(
@@ -285,7 +286,6 @@ class EggListPageState extends State<EggListPage> {
           onSecondaryTap: () => _deleteEgg(e.id!),
           child: Slidable(
             key: ValueKey(e.id),
-            // === 核心修复：extentRatio 移到了 ActionPane 里 ===
             endActionPane: ActionPane(
               motion: const ScrollMotion(), 
               extentRatio: 0.25, 
@@ -347,7 +347,6 @@ class EggListPageState extends State<EggListPage> {
                     onSecondaryTap: () => _deleteEgg(e.id!),
                     child: Slidable(
                       key: ValueKey(e.id),
-                      // === 核心修复：extentRatio 移到了 ActionPane 里 ===
                       endActionPane: ActionPane(
                         motion: const ScrollMotion(), 
                         extentRatio: 0.25, 
@@ -407,6 +406,7 @@ class EggListPageState extends State<EggListPage> {
   }
 }
 
+// ================= 录入/编辑精灵蛋 =================
 class EggEditPage extends StatefulWidget {
   final Egg? egg;
   const EggEditPage({super.key, this.egg});
@@ -425,6 +425,7 @@ class _EggEditPageState extends State<EggEditPage> {
   
   int? _pairingId;
   int? _lineId; 
+  List<String> _eggGroups = []; // 从产线/精灵库继承的蛋组
   
   List<Account> _accounts = [];
   List<ProductionLine> _lines = [];
@@ -456,6 +457,16 @@ class _EggEditPageState extends State<EggEditPage> {
       _accounts = accRows.map(Account.fromMap).toList();
       _lines = lineRows.map(ProductionLine.fromMap).toList();
       if (_selectedAccount == null && _accounts.isNotEmpty) _selectedAccount = _accounts.first.name;
+      
+      // 如果是编辑模式，尝试找出对应的产线，带出蛋组
+      if (widget.egg != null) {
+         for (var l in _lines) {
+           if (l.name == widget.egg!.name) {
+             _eggGroups = List.from(l.eggGroups);
+             break;
+           }
+         }
+      }
     });
   }
 
@@ -466,7 +477,8 @@ class _EggEditPageState extends State<EggEditPage> {
     final rules = await db.query('line_price_rules', where: 'line_id = ?', whereArgs: [_lineId]);
     for (var r in rules) {
       if (weight >= (r['min_weight'] as double) && weight <= (r['max_weight'] as double)) {
-        setState(() { _priceCtrl.text = (r['price'] as double).toStringAsFixed(0); _isOutOfRange = false; }); return;
+        // 修复：不再强制保留0位小数，直接按原样转换
+        setState(() { _priceCtrl.text = (r['price'] as double).toString(); _isOutOfRange = false; }); return;
       }
     }
     setState(() => _isOutOfRange = true);
@@ -511,6 +523,32 @@ class _EggEditPageState extends State<EggEditPage> {
     if (mounted) Navigator.pop(context);
   }
 
+  // 通用居中弹窗选择器
+  void _showAlertPicker(String title, List<String> items, String? current, Function(String) onSelect) {
+    showDialog(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(title, style: const TextStyle(fontSize: 18)),
+        contentPadding: const EdgeInsets.only(top: 16, bottom: 0),
+        content: SizedBox(
+          width: 300,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: items.length,
+            itemBuilder: (context, i) => ListTile(
+              title: Text(items[i], textAlign: TextAlign.center),
+              trailing: current == items[i] ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary) : null,
+              onTap: () { onSelect(items[i]); Navigator.pop(c); },
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c), child: const Text('取消')),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     bool isReadOnly = _status == '已售出' || _status == '需售后'; 
@@ -525,28 +563,34 @@ class _EggEditPageState extends State<EggEditPage> {
         ]),
         const SizedBox(height: 16),
         
-        DropdownButtonFormField<int>(
-          value: _lineId,
-          decoration: const InputDecoration(labelText: '选择产线 (自动填充蛋名/性格)'),
-          items: _lines.map((l) => DropdownMenuItem(value: l.id, child: Text(l.name))).toList(),
-          onChanged: isReadOnly ? null : (v) {
-            final line = _lines.firstWhere((element) => element.id == v);
+        // 产线选择（弹窗）
+        InkWell(
+          onTap: isReadOnly ? null : () => _showAlertPicker('选择产线', _lines.map((e) => e.name).toList(), _nameCtrl.text, (v) {
+            final line = _lines.firstWhere((element) => element.name == v);
             setState(() {
-              _lineId = v;
+              _lineId = line.id;
               _nameCtrl.text = line.name;
               _natureCtrl.text = line.nature;
               _nestType = line.nestType;
               _pairingId = line.pairingId;
               _selectedAccount = line.accountName;
               _iconPath = line.iconPath;
+              _eggGroups = List.from(line.eggGroups);
               _isParentLocked = true;
             });
             _autoFillPrice(_weightCtrl.text);
-          },
+          }),
+          child: InputDecorator(decoration: const InputDecoration(labelText: '选择产线 (自动填充信息)', suffixIcon: Icon(Icons.arrow_drop_down)), child: Text(_nameCtrl.text.isEmpty ? '请选择产线' : _nameCtrl.text)),
         ),
-        const SizedBox(height: 16),
-        TextField(controller: _nameCtrl, enabled: false, decoration: const InputDecoration(labelText: '蛋名 (由产线自动决定)')),
         
+        if (_eggGroups.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Row(
+              children: _eggGroups.map((g) => Padding(padding: const EdgeInsets.only(right: 8), child: Chip(label: Text(g), backgroundColor: Colors.grey.shade100))).toList(),
+            ),
+          ),
+
         const SizedBox(height: 16),
         Row(children: [
           Expanded(child: _buildNestButton('普窝', isReadOnly)),
@@ -563,7 +607,7 @@ class _EggEditPageState extends State<EggEditPage> {
         
         const SizedBox(height: 16),
         Row(children: [
-          Expanded(child: TextField(controller: _priceCtrl, enabled: !isReadOnly, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: '标价'))),
+          Expanded(child: TextField(controller: _priceCtrl, enabled: !isReadOnly, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: '标价'))),
           const SizedBox(width: 16),
           Expanded(child: InkWell(onTap: isReadOnly ? null : _pickDate, child: InputDecorator(decoration: const InputDecoration(labelText: '收取日期'), child: Text(_obtainedDate)))),
         ]),
@@ -579,10 +623,10 @@ class _EggEditPageState extends State<EggEditPage> {
         Wrap(spacing: 8, children: voiceMedals.map((m) => ChoiceChip(label: _buildMedalChip(m), selected: _voiceMedal == m, onSelected: isReadOnly ? null : (v) => setState(() => _voiceMedal = v ? m : null))).toList()),
         
         const SizedBox(height: 24),
-        DropdownButtonFormField<String>(
-          value: _status, isExpanded: true, menuMaxHeight: 250, decoration: const InputDecoration(labelText: '状态'),
-          items: ['在库', '已预定', '已售出', '需售后'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-          onChanged: (v) => setState(() => _status = v!),
+        // 状态下拉（弹窗）
+        InkWell(
+          onTap: () => _showAlertPicker('选择状态', ['在库', '已预定', '已售出', '需售后'], _status, (v) => setState(() => _status = v)),
+          child: InputDecorator(decoration: const InputDecoration(labelText: '状态', suffixIcon: Icon(Icons.arrow_drop_down)), child: Text(_status)),
         ),
         
         const SizedBox(height: 32),
