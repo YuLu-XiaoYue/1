@@ -27,16 +27,16 @@ class AppDatabase {
       sqfliteFfiInit();
       databaseFactory = databaseFactoryFfi;
     }
-    final path = p.join(dir.path, 'elf_egg_v21.db'); // 升级版本
+    final path = p.join(dir.path, 'elf_egg_v22.db'); // 数据库版本 v22
     return databaseFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(
         version: 1,
         onCreate: (db, version) async {
           await db.execute('CREATE TABLE accounts(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, account_id TEXT)');
-          await db.execute('CREATE TABLE creatures(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, icon_path TEXT, egg_groups TEXT)'); // 新增精灵库
+          await db.execute('CREATE TABLE creatures(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, icon_path TEXT, egg_groups TEXT)');
           await db.execute('CREATE TABLE parents(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, gender TEXT, account TEXT, nature TEXT, height REAL, weight REAL, voice REAL, bloodline TEXT, icon_path TEXT, created_at INTEGER, appearance TEXT)');
-          await db.execute('CREATE TABLE pairings(id INTEGER PRIMARY KEY AUTOINCREMENT, account TEXT, mother_id INTEGER, nest_type TEXT)');
+          await db.execute('CREATE TABLE pairings(id INTEGER PRIMARY KEY AUTOINCREMENT, account TEXT, mother_id INTEGER, nest_type TEXT, group_name TEXT)');
           await db.execute('CREATE TABLE pairing_fathers(pairing_id INTEGER, father_id INTEGER, PRIMARY KEY(pairing_id, father_id))');
           await db.execute('CREATE TABLE production_lines(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, account_name TEXT, account_id TEXT, nest_type TEXT, pairing_id INTEGER, nature TEXT, nature_prob TEXT, icon_path TEXT, medals TEXT, egg_groups TEXT, created_at INTEGER)');
           await db.execute('CREATE TABLE line_price_rules(id INTEGER PRIMARY KEY AUTOINCREMENT, line_id INTEGER, min_weight REAL, max_weight REAL, price REAL)');
@@ -49,7 +49,7 @@ class AppDatabase {
           await db.insert('accounts', {'name': '默认账号', 'account_id': ''});
           
           String tutorialContent = '欢迎使用精灵蛋仓库！';
-          String logContent = 'v1.3.0\n- 增加精灵库，产线网格展示。';
+          String logContent = 'v1.4.0\n- 增加配对组名称，新增高级筛选。';
           try {
             tutorialContent = await rootBundle.loadString('assets/tutorial.txt');
             logContent = await rootBundle.loadString('assets/update_log.txt');
@@ -255,7 +255,7 @@ Future<String?> syncEggImage(String name, String? tempNewPath, String? currentPa
 }
 
 Future<String?> syncParentImage(String name, String? tempNewPath, String? currentPath) async {
-  return syncEggImage(name, tempNewPath, currentPath); // 统一使用全库同步逻辑
+  return syncEggImage(name, tempNewPath, currentPath); 
 }
 
 Widget getLocalImage(String? imageName, String folderName, {double size = 40, IconData fallbackIcon = Icons.egg}) {
