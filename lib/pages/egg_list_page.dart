@@ -6,15 +6,9 @@ import 'dart:io';
 import '../db/database.dart';
 import '../models/models.dart';
 
-const Map<String, String> medalIconMap = {
-  '大块头': 'big_body', '满重': 'full_weight', '小不点': 'tiny', '满轻': 'full_light',
-  '婉转声': 'gentle_voice', '满音婉转声': 'full_gentle_voice', '粗嗓门': 'rough_voice', '满音粗嗓门': 'full_rough_voice',
-};
-
 Widget _buildMedalChip(String medal) {
-  final fileName = medalIconMap[medal] ?? medal;
   return Row(mainAxisSize: MainAxisSize.min, children: [
-    Image.asset('assets/medals/$fileName.png', width: 16, height: 16, errorBuilder: (c,e,s) => const Icon(Icons.military_tech, size: 16, color: Colors.grey)),
+    Image.asset('assets/medals/${medalIconMap[medal] ?? medal}.png', width: 16, height: 16, errorBuilder: (c,e,s) => const Icon(Icons.military_tech, size: 16, color: Colors.grey)),
     const SizedBox(width: 4), Text(medal),
   ]);
 }
@@ -94,7 +88,6 @@ class EggListPageState extends State<EggListPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // 账号和产线筛选使用弹窗内部简单的下拉（因为弹窗空间足够）
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: DropdownButtonFormField<String>(
@@ -425,7 +418,7 @@ class _EggEditPageState extends State<EggEditPage> {
   
   int? _pairingId;
   int? _lineId; 
-  List<String> _eggGroups = []; // 从产线/精灵库继承的蛋组
+  List<String> _eggGroups = []; // 自动带出的蛋组
   
   List<Account> _accounts = [];
   List<ProductionLine> _lines = [];
@@ -458,7 +451,6 @@ class _EggEditPageState extends State<EggEditPage> {
       _lines = lineRows.map(ProductionLine.fromMap).toList();
       if (_selectedAccount == null && _accounts.isNotEmpty) _selectedAccount = _accounts.first.name;
       
-      // 如果是编辑模式，尝试找出对应的产线，带出蛋组
       if (widget.egg != null) {
          for (var l in _lines) {
            if (l.name == widget.egg!.name) {
@@ -477,7 +469,6 @@ class _EggEditPageState extends State<EggEditPage> {
     final rules = await db.query('line_price_rules', where: 'line_id = ?', whereArgs: [_lineId]);
     for (var r in rules) {
       if (weight >= (r['min_weight'] as double) && weight <= (r['max_weight'] as double)) {
-        // 修复：不再强制保留0位小数，直接按原样转换
         setState(() { _priceCtrl.text = (r['price'] as double).toString(); _isOutOfRange = false; }); return;
       }
     }
@@ -496,7 +487,6 @@ class _EggEditPageState extends State<EggEditPage> {
     if (_weightCtrl.text.trim().isEmpty || double.tryParse(_weightCtrl.text) == null) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请填写正确的重量！'))); return; }
 
     final db = await AppDatabase.instance.db;
-    
     String? finalPath = await syncEggImage(_nameCtrl.text, _tempSelectedImagePath, widget.egg?.iconPath);
     
     String? fatherName, motherName;
@@ -523,27 +513,38 @@ class _EggEditPageState extends State<EggEditPage> {
     if (mounted) Navigator.pop(context);
   }
 
-  // 通用居中弹窗选择器
   void _showAlertPicker(String title, List<String> items, String? current, Function(String) onSelect) {
     showDialog(
       context: context,
       builder: (c) => AlertDialog(
-        title: Text(title, style: const TextStyle(fontSize: 18)),
+        title: Text(title, style: const TextStyle(fontSize: 18), textAlign: TextAlign.center),
         contentPadding: const EdgeInsets.only(top: 16, bottom: 0),
         content: SizedBox(
           width: 300,
           child: ListView.builder(
             shrinkWrap: true,
             itemCount: items.length,
-            itemBuilder: (context, i) => ListTile(
-              title: Text(items[i], textAlign: TextAlign.center),
-              trailing: current == items[i] ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary) : null,
+            itemBuilder: (context, i) => InkWell(
               onTap: () { onSelect(items[i]); Navigator.pop(c); },
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: Text(items[i], style: const TextStyle(fontSize: 16), textAlign: TextAlign.center),
+                  ),
+                  if (current == items[i])
+                    Positioned(
+                      right: 16,
+                      child: Icon(Icons.check, color: Theme.of(context).colorScheme.primary),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c), child: const Text('取消')),
+          Center(child: TextButton(onPressed: () => Navigator.pop(c), child: const Text('取消'))),
         ],
       ),
     );
@@ -563,7 +564,6 @@ class _EggEditPageState extends State<EggEditPage> {
         ]),
         const SizedBox(height: 16),
         
-        // 产线选择（弹窗）
         InkWell(
           onTap: isReadOnly ? null : () => _showAlertPicker('选择产线', _lines.map((e) => e.name).toList(), _nameCtrl.text, (v) {
             final line = _lines.firstWhere((element) => element.name == v);
@@ -623,7 +623,6 @@ class _EggEditPageState extends State<EggEditPage> {
         Wrap(spacing: 8, children: voiceMedals.map((m) => ChoiceChip(label: _buildMedalChip(m), selected: _voiceMedal == m, onSelected: isReadOnly ? null : (v) => setState(() => _voiceMedal = v ? m : null))).toList()),
         
         const SizedBox(height: 24),
-        // 状态下拉（弹窗）
         InkWell(
           onTap: () => _showAlertPicker('选择状态', ['在库', '已预定', '已售出', '需售后'], _status, (v) => setState(() => _status = v)),
           child: InputDecorator(decoration: const InputDecoration(labelText: '状态', suffixIcon: Icon(Icons.arrow_drop_down)), child: Text(_status)),
