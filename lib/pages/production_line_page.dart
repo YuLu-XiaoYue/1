@@ -122,6 +122,7 @@ class ProductionLinePageState extends State<ProductionLinePage> {
                                 children: [
                                   Row(
                                     children: [
+                                      // 图2图3修复：用最新的图标
                                       getLocalImage(line.iconPath, 'egg_icons', size: 36),
                                       const SizedBox(width: 8),
                                       Expanded(child: Text(line.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
@@ -412,7 +413,7 @@ class _ProductionLineEditPageState extends State<ProductionLineEditPage> {
     );
   }
 
-  void _showAlertPicker(String title, List<String> items, String? current, Function(String) onSelect) {
+  void _showAlertPicker(String title, List<String> items, String current, Function(String) onSelect) {
     showDialog(
       context: context,
       builder: (c) => AlertDialog(
