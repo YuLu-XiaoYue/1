@@ -27,7 +27,7 @@ class AppDatabase {
       sqfliteFfiInit();
       databaseFactory = databaseFactoryFfi;
     }
-    final path = p.join(dir.path, 'elf_egg_v22.db'); // 数据库版本 v22
+    final path = p.join(dir.path, 'elf_egg_v22.db'); 
     return databaseFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(
@@ -40,7 +40,6 @@ class AppDatabase {
           await db.execute('CREATE TABLE pairing_fathers(pairing_id INTEGER, father_id INTEGER, PRIMARY KEY(pairing_id, father_id))');
           await db.execute('CREATE TABLE production_lines(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, account_name TEXT, account_id TEXT, nest_type TEXT, pairing_id INTEGER, nature TEXT, nature_prob TEXT, icon_path TEXT, medals TEXT, egg_groups TEXT, created_at INTEGER)');
           await db.execute('CREATE TABLE line_price_rules(id INTEGER PRIMARY KEY AUTOINCREMENT, line_id INTEGER, min_weight REAL, max_weight REAL, price REAL)');
-          
           await db.execute('CREATE TABLE eggs(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, weight REAL, medals TEXT, nature TEXT, account TEXT, pairing_id INTEGER, father_id INTEGER, mother_id INTEGER, father_name_snapshot TEXT, mother_name_snapshot TEXT, icon_path TEXT, price REAL, status TEXT, sale_platform TEXT, buyer_platform_name TEXT, buyer_platform_id TEXT, buyer_game_name TEXT, buyer_game_id TEXT, note TEXT, created_at INTEGER, updated_at INTEGER, nest_type TEXT, obtained_date TEXT, after_sales_plan TEXT, is_after_sales INTEGER)');
           await db.execute('CREATE TABLE price_rules(id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT, min_weight REAL, max_weight REAL, price REAL)');
           await db.execute('CREATE TABLE blacklist(id INTEGER PRIMARY KEY AUTOINCREMENT, platform TEXT, buyer_name TEXT, platform_id TEXT, game_id TEXT, reason TEXT)');
@@ -49,7 +48,7 @@ class AppDatabase {
           await db.insert('accounts', {'name': '默认账号', 'account_id': ''});
           
           String tutorialContent = '欢迎使用精灵蛋仓库！';
-          String logContent = 'v1.4.0\n- 增加配对组名称，新增高级筛选。';
+          String logContent = 'v1.5.0\n- 增加精灵库，修复UI问题。';
           try {
             tutorialContent = await rootBundle.loadString('assets/tutorial.txt');
             logContent = await rootBundle.loadString('assets/update_log.txt');
