@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:file_picker/file_picker.dart'; // 补上的 import
+import 'dart:io'; // 补上的 import
 import 'dart:convert';
 import '../db/database.dart';
 import '../models/models.dart';
@@ -45,7 +47,7 @@ class CreatureLibraryPageState extends State<CreatureLibraryPage> {
               crossAxisCount: crossAxisCount,
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
-              childAspectRatio: 1.5, // 控制卡片比例
+              childAspectRatio: 1.5, 
             ),
             itemCount: _creatures.length,
             itemBuilder: (context, i) {
