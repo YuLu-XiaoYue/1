@@ -49,13 +49,20 @@ class PairingPageState extends State<PairingPage> {
       int inStock = 0, sold = 0;
       for (var stat in eggStats) { if (stat['status'] == '在库') inStock = stat['c'] as int; if (stat['status'] == '已售出') sold = stat['c'] as int; }
       
-      loaded.add({'id': p['id'], 'mother': mother, 'fathers': fathers, 'inStock': inStock, 'sold': sold, 'isMixed': isMixed, 'nestType': p['nest_type'] ?? '普窝'});
+      loaded.add({
+        'id': p['id'], 
+        'mother': mother, 
+        'fathers': fathers, 
+        'inStock': inStock, 
+        'sold': sold, 
+        'isMixed': isMixed, 
+        'nestType': p['nest_type'] ?? '普窝'
+      });
     }
     if (!mounted) return;
     setState(() => _groups = loaded);
   }
 
-  // 管理账号
   void _manageAccount(Account acc) {
     final nameCtrl = TextEditingController(text: acc.name);
     final idCtrl = TextEditingController(text: acc.accountId ?? '');
@@ -190,4 +197,94 @@ class PairingPageState extends State<PairingPage> {
   }
 }
 
-// PairingEditPage 保持你上次替换的代码即可
+class PairingEditPage extends StatefulWidget {
+  final String account;
+  const PairingEditPage({super.key, required this.account});
+  @override
+  State<PairingEditPage> createState() => _PairingEditPageState();
+}
+
+class _PairingEditPageState extends State<PairingEditPage> {
+  List<Parent> _mothers = [], _fathers = [];
+  int? _motherId; Set<int> _fatherIds = {};
+  String _nestType = '普窝';
+
+  @override
+  void initState() { super.initState(); _load(); }
+
+  Future<void> _load() async {
+    final db = await AppDatabase.instance.db;
+    final rows = await db.query('parents', where: 'account = ?', whereArgs: [widget.account]);
+    final all = rows.map(Parent.fromMap).toList();
+    setState(() { _mothers = all.where((p) => p.gender == '母本').toList(); _fathers = all.where((p) => p.gender == '父本').toList(); });
+  }
+
+  Future<void> _save() async {
+    if (_motherId == null) return;
+    final db = await AppDatabase.instance.db;
+    final id = await db.insert('pairings', {'account': widget.account, 'mother_id': _motherId, 'nest_type': _nestType});
+    for (var fid in _fatherIds) { await db.insert('pairing_fathers', {'pairing_id': id, 'father_id': fid}); }
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('新建配对组')),
+      body: ListView(padding: const EdgeInsets.all(16), children: [
+        const Text('选择窝类型', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Row(children: [
+          Expanded(child: _buildNestButton('普窝')),
+          const SizedBox(width: 16),
+          Expanded(child: _buildNestButton('绿窝')),
+        ]),
+        const SizedBox(height: 24),
+        const Text('选择母本', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 160,
+          child: _mothers.isEmpty ? const Center(child: Text('暂无母本')) : ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: _mothers.length,
+            itemBuilder: (context, i) {
+              final m = _mothers[i];
+              return Padding(padding: const EdgeInsets.only(right: 12), child: SizedBox(width: 200, child: buildParentCard(context, m, true, isSelected: _motherId == m.id, onTap: () => setState(() => _motherId = m.id))));
+            },
+          ),
+        ),
+        const SizedBox(height: 24),
+        const Text('选择父本(可多选)', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 160,
+          child: _fathers.isEmpty ? const Center(child: Text('暂无父本')) : ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: _fathers.length,
+            itemBuilder: (context, i) {
+              final f = _fathers[i];
+              return Padding(padding: const EdgeInsets.only(right: 12), child: SizedBox(width: 200, child: buildParentCard(context, f, false, isSelected: _fatherIds.contains(f.id), onTap: () { setState(() { if (_fatherIds.contains(f.id)) { _fatherIds.remove(f.id); } else { _fatherIds.add(f.id!); } }); })));
+            },
+          ),
+        ),
+      ]),
+      floatingActionButton: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+        FloatingActionButton(onPressed: _save, backgroundColor: Colors.green, foregroundColor: Colors.white, heroTag: 'save', child: const Icon(Icons.check)),
+        const SizedBox(width: 16),
+        FloatingActionButton(onPressed: () => Navigator.pop(context), backgroundColor: Colors.red, foregroundColor: Colors.white, heroTag: 'cancel', child: const Icon(Icons.close)),
+      ]),
+    );
+  }
+
+  Widget _buildNestButton(String type) {
+    bool isSelected = _nestType == type;
+    return InkWell(
+      onTap: () => setState(() => _nestType = type),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16), alignment: Alignment.center,
+        decoration: BoxDecoration(color: isSelected ? Colors.green.shade50 : Colors.white, border: Border.all(color: isSelected ? Colors.green : Colors.grey.shade300, width: 2), borderRadius: BorderRadius.circular(16)),
+        child: Text(type, style: TextStyle(color: isSelected ? Colors.green.shade800 : Colors.grey, fontWeight: FontWeight.bold)),
+      ),
+    );
+  }
+}
