@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../db/database.dart';
-import '../models/models.dart';
 
 class ArticlePage extends StatefulWidget {
   final String type;
@@ -45,7 +44,6 @@ class _ArticlePageState extends State<ArticlePage> {
       appBar: AppBar(
         title: Text(widget.title),
         actions: [
-          // 修复问题 6：加大铅笔图标，并给一个好看的底色
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: ElevatedButton.icon(
