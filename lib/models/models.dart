@@ -225,30 +225,22 @@ const Map<String, String> medalIconMap = {
   '婉转声': 'gentle_voice', '满音婉转声': 'full_gentle_voice', '粗嗓门': 'rough_voice', '满音粗嗓门': 'full_rough_voice',
 };
 
-// === 修复：核心自动性格识别算法 ===
 String calculateNature(List<Parent> fathers, Parent mother) {
   String mNature = mother.nature ?? '未知';
   Set<String> fNatures = fathers.map((f) => f.nature ?? '未知').toSet();
   Set<String> allNatures = {mNature, ...fNatures};
 
-  // 1. 父母本性格全相同
   if (allNatures.length == 1) {
     return '$mNature|60%$mNature+40%随机';
   }
   
-  // 2. 父母本性格不同，且一共只有两种性格
   if (allNatures.length == 2) {
-    // 找出另一种性格（只要不是母本的那个）
     String otherNature = '未知';
     for (var n in allNatures) {
-      if (n != mNature) {
-        otherNature = n;
-        break;
-      }
+      if (n != mNature) { otherNature = n; break; }
     }
     return '$mNature丨$otherNature|30%$mNature+30%$otherNature+40%随机';
   }
 
-  // 3. 父母本性格不同且一共有两种以上性格（混窝）
   return '混窝|随机';
 }
