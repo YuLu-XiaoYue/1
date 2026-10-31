@@ -315,7 +315,6 @@ class _ParentEditPageState extends State<ParentEditPage> {
     }
   }
 
-  // 核心修改：名字改变时，自动去精灵库找图标
   Future<void> _onNameChanged(String name) async {
     if (name.isEmpty) return;
     final db = await AppDatabase.instance.db;
@@ -334,7 +333,6 @@ class _ParentEditPageState extends State<ParentEditPage> {
     if (_nameCtrl.text.isEmpty) return;
     final db = await AppDatabase.instance.db;
     
-    // 如果是老数据，且没有从名字匹配到新图，再尝试调用同步
     if (_iconPath == null) {
       _iconPath = await syncParentImage(_nameCtrl.text, null, widget.parent?.iconPath);
     }
@@ -350,7 +348,6 @@ class _ParentEditPageState extends State<ParentEditPage> {
       appBar: AppBar(title: Text(widget.parent == null ? '新增父母本' : '编辑父母本')),
       body: ListView(padding: const EdgeInsets.all(16), children: [
         
-        // 核心修改：只展示图标，去掉“选图”按钮
         Center(
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
