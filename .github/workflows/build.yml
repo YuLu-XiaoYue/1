@@ -20,11 +20,15 @@ jobs:
       - name: Generate missing platform folders
         run: flutter create . --platforms android,windows
       - name: Apply compileSdk patch
-        run: |
-          cp android.build.gradle.kts android/build.gradle.kts
+        run: cp android.build.gradle.kts android/build.gradle.kts
       - name: Rename App to Chinese
         run: sed -i 's/android:label=".*"/android:label="精灵蛋仓库"/' android/app/src/main/AndroidManifest.xml
       - run: flutter pub get
+      
+      # 生成安卓图标
+      - name: Generate Launcher Icons
+        run: dart run flutter_launcher_icons
+        
       - name: Build APK and Move to Correct Path
         run: |
           flutter build apk --release || true
@@ -44,18 +48,18 @@ jobs:
           channel: 'stable'
       - name: Generate missing platform folders
         run: flutter create . --platforms android,windows
-      
-      # 修复乱码：使用 Unicode 转义字符，让 C++ 编译器正确识别中文
-      - name: Rename Window Title to Chinese (Fix Unicode)
+      - name: Rename Window Title to Chinese
         run: |
-          $title = "\u7CBE\u7075\u86CB\u4ED3\u5E93" # 精灵蛋仓库的 Unicode
-          (Get-Content windows/runner/main.cpp) | Foreach-Object { $_ -replace 'elf_egg_warehouse', $title } | Set-Content windows/runner/main.cpp
-          
+          (Get-Content windows/runner/main.cpp) | Foreach-Object { $_ -replace 'elf_egg_warehouse', '精灵蛋仓库' } | Set-Content -Encoding UTF8 windows/runner/main.cpp
       - run: flutter config --enable-windows-desktop
       - run: flutter pub get
+      
+      # 生成Windows图标
+      - name: Generate Launcher Icons
+        run: dart run flutter_launcher_icons
+        
       - run: flutter build windows --release
       
-      # 构建完成后，把生成的 exe 文件重命名为中文
       - name: Rename EXE and Zip Release
         run: |
           Rename-Item -Path "build\windows\x64\runner\Release\elf_egg_warehouse.exe" -NewName "精灵蛋仓库.exe"
