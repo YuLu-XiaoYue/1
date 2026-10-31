@@ -27,6 +27,7 @@ class _MyAppState extends State<MyApp> {
   Color _themeColor = Colors.teal;
   Color _bgColor = const Color(0xFFF5F5F5);
   Color? _drawerColor;
+  Color _cardColor = Colors.white; // 新增：卡片独立背景色
 
   @override
   void initState() { super.initState(); _loadTheme(); }
@@ -38,6 +39,7 @@ class _MyAppState extends State<MyApp> {
       _bgColor = Color(prefs.getInt('bg_color') ?? 0xFFF5F5F5);
       int? dc = prefs.getInt('drawer_color');
       _drawerColor = dc != null ? Color(dc) : null;
+      _cardColor = Color(prefs.getInt('card_color') ?? Colors.white.value);
     });
   }
 
@@ -62,19 +64,40 @@ class _MyAppState extends State<MyApp> {
         inputDecorationTheme: const InputDecorationTheme(border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16)),
       ),
       home: MainLayout(
-        currentThemeColor: _themeColor, currentBgColor: _bgColor, currentDrawerColor: _drawerColor,
+        currentThemeColor: _themeColor, 
+        currentBgColor: _bgColor, 
+        currentDrawerColor: _drawerColor,
+        currentCardColor: _cardColor,
         onThemeColorChanged: (c) => setState(() => _themeColor = c),
         onBgColorChanged: (c) => setState(() => _bgColor = c),
         onDrawerColorChanged: (c) => setState(() => _drawerColor = c),
+        onCardColorChanged: (c) => setState(() => _cardColor = c),
       ),
     );
   }
 }
 
 class MainLayout extends StatefulWidget {
-  final Color currentThemeColor; final Color currentBgColor; final Color? currentDrawerColor;
-  final Function(Color) onThemeColorChanged; final Function(Color) onBgColorChanged; final Function(Color?) onDrawerColorChanged;
-  const MainLayout({super.key, required this.currentThemeColor, required this.currentBgColor, required this.currentDrawerColor, required this.onThemeColorChanged, required this.onBgColorChanged, required this.onDrawerColorChanged});
+  final Color currentThemeColor; 
+  final Color currentBgColor; 
+  final Color? currentDrawerColor;
+  final Color currentCardColor;
+  final Function(Color) onThemeColorChanged; 
+  final Function(Color) onBgColorChanged; 
+  final Function(Color?) onDrawerColorChanged;
+  final Function(Color) onCardColorChanged;
+  
+  const MainLayout({
+    super.key, 
+    required this.currentThemeColor, 
+    required this.currentBgColor, 
+    required this.currentDrawerColor, 
+    required this.currentCardColor,
+    required this.onThemeColorChanged, 
+    required this.onBgColorChanged, 
+    required this.onDrawerColorChanged,
+    required this.onCardColorChanged,
+  });
 
   @override
   State<MainLayout> createState() => _MainLayoutState();
@@ -139,7 +162,7 @@ class _MainLayoutState extends State<MainLayout> {
         index: _index,
         children: [
           EggListPage(key: _eggKey0, viewType: '在库/预定'),
-          ProductionLinePage(key: _lineKey),
+          ProductionLinePage(key: _lineKey, cardColor: widget.currentCardColor), // 传入卡片底色
           EggListPage(key: _eggKey1, viewType: '已售出'),
           EggListPage(key: _eggKey2, viewType: '售后订单'),
           const BlacklistPage(),
@@ -147,7 +170,16 @@ class _MainLayoutState extends State<MainLayout> {
           ParentPage(key: _parentKey),
           const ArticlePage(type: 'tutorial', title: '新手教学'),
           const ArticlePage(type: 'log', title: '更新日志'),
-          const SettingsPage(),
+          SettingsPage(
+            currentThemeColor: widget.currentThemeColor,
+            currentBgColor: widget.currentBgColor,
+            currentDrawerColor: widget.currentDrawerColor,
+            currentCardColor: widget.currentCardColor,
+            onThemeColorChanged: widget.onThemeColorChanged,
+            onBgColorChanged: widget.onBgColorChanged,
+            onDrawerColorChanged: widget.onDrawerColorChanged,
+            onCardColorChanged: widget.onCardColorChanged,
+          ),
         ],
       ),
     );
