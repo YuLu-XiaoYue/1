@@ -44,7 +44,22 @@ class _ArticlePageState extends State<ArticlePage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
-        actions: [IconButton(icon: Icon(_isEditing ? Icons.save : Icons.edit), onPressed: () { if (_isEditing) { _save(); } else { setState(() => _isEditing = true); } })],
+        actions: [
+          // 修复问题 6：加大铅笔图标，并给一个好看的底色
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _isEditing ? Colors.green.shade50 : Colors.blue.shade50,
+                foregroundColor: _isEditing ? Colors.green : Colors.blue,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))
+              ),
+              icon: Icon(_isEditing ? Icons.save : Icons.edit, size: 20), 
+              label: Text(_isEditing ? '保存' : '编辑'),
+              onPressed: () { if (_isEditing) { _save(); } else { setState(() => _isEditing = true); } }
+            ),
+          )
+        ],
       ),
       body: _isEditing 
         ? Padding(padding: const EdgeInsets.all(16), child: TextField(controller: _ctrl, maxLines: null, expands: true, decoration: const InputDecoration(hintText: '在这里输入内容...')))
