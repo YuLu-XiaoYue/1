@@ -124,9 +124,8 @@ class ProductionLinePageState extends State<ProductionLinePage> {
                                     children: [
                                       getLocalImage(line.iconPath, 'egg_icons', size: 36),
                                       const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(line.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
-                                      ),
+                                      Expanded(child: Text(line.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+                                      const Icon(Icons.edit, size: 16, color: Colors.grey), // 提示可编辑
                                     ],
                                   ),
                                   const SizedBox(height: 8),
@@ -145,7 +144,7 @@ class ProductionLinePageState extends State<ProductionLinePage> {
                                   
                                   const Spacer(),
                                   
-                                  // 蛋组与奖牌
+                                  // 蛋组与奖牌（这里改成图标展示）
                                   if (line.eggGroups.isNotEmpty || line.medals.isNotEmpty || line.nestType == '绿窝')
                                     Wrap(
                                       spacing: 4, runSpacing: 4,
@@ -156,17 +155,11 @@ class ProductionLinePageState extends State<ProductionLinePage> {
                                           decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(4)),
                                           child: Text(g, style: const TextStyle(fontSize: 9)),
                                         )),
-                                        ...line.medals.map((m) => Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                          decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(4)),
-                                          child: Text(m, style: const TextStyle(fontSize: 9)),
-                                        )),
+                                        ...line.medals.map((m) => Image.asset('assets/medals/${medalIconMap[m] ?? m}.png', width: 16, height: 16)),
                                       ],
                                     ),
                                   const Divider(height: 16),
-                                  Expanded(
-                                    child: _buildMiniRules(line.id!),
-                                  )
+                                  Expanded(child: _buildMiniRules(line.id!)),
                                 ],
                               ),
                             ),
@@ -195,8 +188,7 @@ class ProductionLinePageState extends State<ProductionLinePage> {
         if (!snapshot.hasData || snapshot.data!.isEmpty) return const Center(child: Text('无区间', style: TextStyle(fontSize: 12, color: Colors.grey)));
         final rules = snapshot.data!;
         return ListView.builder(
-          padding: EdgeInsets.zero,
-          physics: const NeverScrollableScrollPhysics(),
+          padding: EdgeInsets.zero, physics: const NeverScrollableScrollPhysics(),
           itemCount: rules.length > 2 ? 2 : rules.length,
           itemBuilder: (context, i) {
             final r = rules[i];
@@ -235,6 +227,7 @@ class _ProductionLineEditPageState extends State<ProductionLineEditPage> {
   String _nature = '请选择配对组';
   String _natureProb = '概率将在选择配对组后自动生成';
   List<String> _eggGroups = [];
+  List<String> _medals = []; // 现在的产线奖牌
   String? _iconPath;
   
   List<Account> _accounts = [];
@@ -249,6 +242,7 @@ class _ProductionLineEditPageState extends State<ProductionLineEditPage> {
       final l = widget.line!;
       _nameCtrl.text = l.name; _account = l.accountName; _nestType = l.nestType; _pairingId = l.pairingId; 
       _nature = l.nature; _natureProb = l.natureProb; _eggGroups = List.from(l.eggGroups); _iconPath = l.iconPath;
+      _medals = List.from(l.medals);
       _loadRules(l.id!);
     }
   }
@@ -284,10 +278,7 @@ class _ProductionLineEditPageState extends State<ProductionLineEditPage> {
     
     for (var c in creatures) {
       if (name.contains(c.name)) {
-        setState(() {
-          _eggGroups = List.from(c.eggGroups);
-          _iconPath = c.iconPath;
-        });
+        setState(() { _eggGroups = List.from(c.eggGroups); _iconPath = c.iconPath; });
         return;
       }
     }
@@ -308,6 +299,23 @@ class _ProductionLineEditPageState extends State<ProductionLineEditPage> {
     }
   }
 
+  // === 核心修复：奖牌互斥关系 ===
+  void _toggleMedal(String medal) {
+    setState(() {
+      if (_medals.contains(medal)) {
+        _medals.remove(medal); // 已选中则取消
+      } else {
+        // 判断属于哪个互斥组，先移除同组里的其他选中项
+        if (sizeMedals.contains(medal)) {
+          _medals.removeWhere((m) => sizeMedals.contains(m));
+        } else if (voiceMedals.contains(medal)) {
+          _medals.removeWhere((m) => voiceMedals.contains(m));
+        }
+        _medals.add(medal);
+      }
+    });
+  }
+
   void _save() async {
     if (_nameCtrl.text.isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请填写产线名称！'))); return; }
     if (_pairingId == null) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请选择配对组！'))); return; }
@@ -318,7 +326,7 @@ class _ProductionLineEditPageState extends State<ProductionLineEditPage> {
     final line = ProductionLine(
       id: widget.line?.id, name: _nameCtrl.text, accountName: _account, accountId: acc.accountId,
       nestType: _nestType, pairingId: _pairingId!, nature: _nature, natureProb: _natureProb, 
-      medals: widget.line?.medals ?? [], eggGroups: _eggGroups, iconPath: _iconPath,
+      medals: _medals, eggGroups: _eggGroups, iconPath: _iconPath,
     );
     if (line.id == null) { 
       final id = await db.insert('production_lines', line.toMap()); 
@@ -366,7 +374,39 @@ class _ProductionLineEditPageState extends State<ProductionLineEditPage> {
     }
   }
 
-  // === 核心修改：居中选择弹窗 ===
+  // 居中弹窗，显示“组1 - 名字”
+  void _showPairingPicker() {
+    showDialog(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('选择配对组', style: TextStyle(fontSize: 18)),
+        contentPadding: const EdgeInsets.only(top: 16, bottom: 0),
+        content: SizedBox(
+          width: 300,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: _pairings.length,
+            itemBuilder: (context, i) {
+              final p = _pairings[i];
+              String name = p['group_name'] ?? '';
+              String display = '组 ${i+1}';
+              if (name.isNotEmpty) display += ' - $name';
+              return ListTile(
+                title: Text(display, textAlign: TextAlign.center),
+                trailing: _pairingId == p['id'] ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary) : null,
+                onTap: () { 
+                  _onPairingSelected(p['id'] as int);
+                  Navigator.pop(c); 
+                },
+              );
+            },
+          ),
+        ),
+        actions: [ TextButton(onPressed: () => Navigator.pop(c), child: const Text('取消')) ],
+      ),
+    );
+  }
+
   void _showAlertPicker(String title, List<String> items, String? current, Function(String) onSelect) {
     showDialog(
       context: context,
@@ -376,8 +416,7 @@ class _ProductionLineEditPageState extends State<ProductionLineEditPage> {
         content: SizedBox(
           width: 300,
           child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: items.length,
+            shrinkWrap: true, itemCount: items.length,
             itemBuilder: (context, i) => ListTile(
               title: Text(items[i], textAlign: TextAlign.center),
               trailing: current == items[i] ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary) : null,
@@ -385,19 +424,40 @@ class _ProductionLineEditPageState extends State<ProductionLineEditPage> {
             ),
           ),
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(c), child: const Text('取消')),
-        ],
+        actions: [ TextButton(onPressed: () => Navigator.pop(c), child: const Text('取消')) ],
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    // 取出当前选中的配对组显示名
+    String pairingDisplay = '请选择配对组';
+    if (_pairingId != null) {
+      int idx = _pairings.indexWhere((p) => p['id'] == _pairingId);
+      if (idx != -1) {
+        String name = _pairings[idx]['group_name'] ?? '';
+        pairingDisplay = '组 ${idx+1}';
+        if (name.isNotEmpty) pairingDisplay += ' - $name';
+      }
+    }
+
     return Scaffold(
-      appBar: AppBar(title: Text(widget.line == null ? '新增产线' : '编辑产线')),
+      appBar: AppBar(
+        title: Text(widget.line == null ? '新增产线' : '编辑产线'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: ElevatedButton.icon(
+              onPressed: _save, 
+              icon: const Icon(Icons.save), 
+              label: const Text('保存')
+            ),
+          )
+        ],
+      ),
       body: ListView(padding: const EdgeInsets.all(16), children: [
-        TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: '产线名称 (蛋名)'), onChanged: _onNameChanged),
+        TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: '产线名称 (蛋名)', suffixIcon: Icon(Icons.edit)), onChanged: _onNameChanged),
         
         if (_iconPath != null || _eggGroups.isNotEmpty)
           Padding(
@@ -425,14 +485,12 @@ class _ProductionLineEditPageState extends State<ProductionLineEditPage> {
         ]),
 
         const SizedBox(height: 16),
+        // 配对组弹窗选择
         InkWell(
-          onTap: () => _showAlertPicker('选择配对组', _pairings.map((e) => '组 ${e['id']} (母本ID: ${e['mother_id']})').toList(), _pairingId != null ? '组 $_pairingId (母本ID: ...)' : null, (v) { 
-            int id = int.parse(v.split(' ')[1]);
-            _onPairingSelected(id);
-          }),
+          onTap: _showPairingPicker,
           child: InputDecorator(
             decoration: const InputDecoration(labelText: '父母本配对组', suffixIcon: Icon(Icons.arrow_drop_down)), 
-            child: Text(_pairingId == null ? '请选择配对组' : '已选择组 $_pairingId'),
+            child: Text(pairingDisplay),
           ),
         ),
 
@@ -445,6 +503,28 @@ class _ProductionLineEditPageState extends State<ProductionLineEditPage> {
             const SizedBox(height: 8),
             Text('性格概率: $_natureProb', style: const TextStyle(color: Colors.grey)),
           ]),
+        ),
+
+        const SizedBox(height: 24),
+        const Text('产线奖牌 (单选互斥)', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        // 展示图标，修复互斥逻辑
+        Wrap(
+          spacing: 8, runSpacing: 8,
+          children: [
+            ...sizeMedals.map((m) => FilterChip(
+              avatar: Image.asset('assets/medals/${medalIconMap[m]}.png', width: 18, height: 18, errorBuilder: (c,e,s) => const Icon(Icons.star, size: 18)),
+              label: Text(m),
+              selected: _medals.contains(m),
+              onSelected: (v) => _toggleMedal(m),
+            )),
+            ...voiceMedals.map((m) => FilterChip(
+              avatar: Image.asset('assets/medals/${medalIconMap[m]}.png', width: 18, height: 18, errorBuilder: (c,e,s) => const Icon(Icons.star, size: 18)),
+              label: Text(m),
+              selected: _medals.contains(m),
+              onSelected: (v) => _toggleMedal(m),
+            )),
+          ],
         ),
 
         const Divider(height: 48),
@@ -471,11 +551,6 @@ class _ProductionLineEditPageState extends State<ProductionLineEditPage> {
           );
         }).toList(),
         const SizedBox(height: 80),
-      ]),
-      floatingActionButton: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-        FloatingActionButton(onPressed: _save, backgroundColor: Colors.green, foregroundColor: Colors.white, heroTag: 'save', child: const Icon(Icons.check)),
-        const SizedBox(width: 16),
-        FloatingActionButton(onPressed: () => Navigator.pop(context), backgroundColor: Colors.red, foregroundColor: Colors.white, heroTag: 'cancel', child: const Icon(Icons.close)),
       ]),
     );
   }
