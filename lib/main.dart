@@ -10,7 +10,7 @@ import 'pages/settings_page.dart';
 import 'pages/blacklist_page.dart';
 import 'pages/article_page.dart';
 import 'pages/production_line_page.dart';
-import 'pages/creature_library_page.dart'; // 引入新建的精灵库
+import 'pages/creature_library_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -106,7 +106,7 @@ class MainLayout extends StatefulWidget {
 
 class _MainLayoutState extends State<MainLayout> {
   int _index = 0;
-  // 菜单列表更新
+  // 左侧菜单列表
   final List<String> _titles = ['精灵蛋仓库', '精灵库', '产线', '已售出', '售后订单', '黑名单', '配对库', '父母本库', '新手教学', '更新日志', '设置'];
   String _versionText = '加载中...'; 
 
@@ -144,7 +144,7 @@ class _MainLayoutState extends State<MainLayout> {
               Expanded(
                 child: ListView(padding: EdgeInsets.zero, children: [
                   _navItem(0, Icons.inventory, '精灵蛋仓库'),
-                  _navItem(1, Icons.pets, '精灵库'),         // 新增
+                  _navItem(1, Icons.pets, '精灵库'),         
                   _navItem(2, Icons.precision_manufacturing, '产线'),
                   _navItem(3, Icons.sell, '已售出'),
                   _navItem(4, Icons.handyman, '售后订单'),
@@ -166,7 +166,7 @@ class _MainLayoutState extends State<MainLayout> {
         index: _index,
         children: [
           EggListPage(key: _eggKey0, viewType: '在库/预定'),
-          CreatureLibraryPage(key: _creatureKey), // 新增
+          CreatureLibraryPage(key: _creatureKey), 
           ProductionLinePage(key: _lineKey, cardColor: widget.currentCardColor),
           EggListPage(key: _eggKey1, viewType: '已售出'),
           EggListPage(key: _eggKey2, viewType: '售后订单'),
@@ -196,7 +196,7 @@ class _MainLayoutState extends State<MainLayout> {
       onTap: () { 
         setState(() => _index = index); Navigator.pop(context); 
         if (index == 0) _eggKey0.currentState?.loadData();
-        if (index == 1) _creatureKey.currentState?.loadData(); // 刷新精灵库
+        if (index == 1) _creatureKey.currentState?.loadData(); 
         if (index == 2) _lineKey.currentState?.loadData();
         if (index == 3) _eggKey1.currentState?.loadData();
         if (index == 4) _eggKey2.currentState?.loadData();
