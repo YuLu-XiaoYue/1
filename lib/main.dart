@@ -15,6 +15,7 @@ import 'pages/creature_library_page.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppDatabase.instance.db;
+  await AppDatabase.instance.syncAllCreatureIcons(); // 启动时全盘同步一次图标
   runApp(const MyApp());
 }
 
@@ -106,7 +107,6 @@ class MainLayout extends StatefulWidget {
 
 class _MainLayoutState extends State<MainLayout> {
   int _index = 0;
-  // 左侧菜单列表
   final List<String> _titles = ['精灵蛋仓库', '精灵库', '产线', '已售出', '售后订单', '黑名单', '配对库', '父母本库', '新手教学', '更新日志', '设置'];
   String _versionText = '加载中...'; 
 
