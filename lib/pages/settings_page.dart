@@ -27,6 +27,9 @@ class SettingsPage extends StatefulWidget {
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends State<SettingsPage> {
   
   void _updateColor(Color color, String type) async {
     final prefs = await SharedPreferences.getInstance();
@@ -71,7 +74,7 @@ class SettingsPage extends StatefulWidget {
                     enableAlpha: false, 
                     displayThumbColor: true, 
                     paletteType: PaletteType.hsvWithHue,
-                    hexInputBar: true, // 修复问题 7：加入 Hex 输入框
+                    hexInputBar: true, 
                   ),
                   const SizedBox(height: 24),
                   const Text('实际按钮预览效果：', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -157,8 +160,12 @@ class SettingsPage extends StatefulWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDrawerFollowing = widget.currentDrawerColor == null;
-    final drawerDisplayColor = widget.currentDrawerColor ?? widget.currentThemeColor;
+    // 核心修复：提前提取所有颜色变量，彻底解决 widget 找不到的语法报错
+    final Color themeColor = widget.currentThemeColor;
+    final Color bgColor = widget.currentBgColor;
+    final Color cardColor = widget.currentCardColor;
+    final Color drawerDisplayColor = widget.currentDrawerColor ?? themeColor;
+    final bool isDrawerFollowing = widget.currentDrawerColor == null;
 
     return ListView(
       padding: const EdgeInsets.all(24),
@@ -169,13 +176,13 @@ class SettingsPage extends StatefulWidget {
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Text('主题色 (按钮)', style: TextStyle(color: Colors.grey)), 
             const SizedBox(height: 8), 
-            _buildColorButton(widget.currentThemeColor, '点击选择', () => _pickColor(widget.currentThemeColor, '主题色', (c) => _updateColor(c, 'theme')))
+            _buildColorButton(themeColor, '点击选择', () => _pickColor(themeColor, '主题色', (c) => _updateColor(c, 'theme')))
           ])),
           const SizedBox(width: 16),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Text('背景色', style: TextStyle(color: Colors.grey)), 
             const SizedBox(height: 8), 
-            _buildColorButton(widget.currentBgColor, '点击选择', () => _pickColor(widget.currentBgColor, '背景色', (c) => _updateColor(c, 'bg')))
+            _buildColorButton(bgColor, '点击选择', () => _pickColor(bgColor, '背景色', (c) => _updateColor(c, 'bg')))
           ])),
         ]),
         
@@ -190,7 +197,7 @@ class SettingsPage extends StatefulWidget {
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Text('卡片底色', style: TextStyle(color: Colors.grey)), 
             const SizedBox(height: 8), 
-            _buildColorButton(widget.currentCardColor, '点击选择', () => _pickColor(widget.currentCardColor, '卡片背景色', (c) => _updateColor(c, 'card')))
+            _buildColorButton(cardColor, '点击选择', () => _pickColor(cardColor, '卡片背景色', (c) => _updateColor(c, 'card')))
           ])),
         ]),
 
