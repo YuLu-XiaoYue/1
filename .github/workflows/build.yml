@@ -25,7 +25,6 @@ jobs:
         run: sed -i 's/android:label=".*"/android:label="精灵蛋仓库"/' android/app/src/main/AndroidManifest.xml
       - run: flutter pub get
       
-      # 生成安卓图标
       - name: Generate Launcher Icons
         run: dart run flutter_launcher_icons
         
@@ -48,13 +47,31 @@ jobs:
           channel: 'stable'
       - name: Generate missing platform folders
         run: flutter create . --platforms android,windows
-      - name: Rename Window Title to Chinese
+        
+      # ======= 核心修复：强制 C++ 编译使用 UTF-8 并写入 Unicode =======
+      - name: Fix Window Title and UTF-8 Encoding
+        shell: python
         run: |
-          (Get-Content windows/runner/main.cpp) | Foreach-Object { $_ -replace 'elf_egg_warehouse', '精灵蛋仓库' } | Set-Content -Encoding UTF8 windows/runner/main.cpp
+          import codecs
+          # 1. 修改 main.cpp 标题为 Unicode 转义
+          with codecs.open('windows/runner/main.cpp', 'r', encoding='utf-8-sig') as f:
+              content = f.read()
+          content = content.replace('L"elf_egg_warehouse"', 'L"\\u7CBE\\u7075\\u86CB\\u4ED3\\u5E93"')
+          with codecs.open('windows/runner/main.cpp', 'w', encoding='utf-8-sig') as f:
+              f.write(content)
+          
+          # 2. 修改 CMakeLists.txt 强制编译器使用 UTF-8
+          with codecs.open('windows/CMakeLists.txt', 'r', encoding='utf-8-sig') as f:
+              cmake_content = f.read()
+          if 'add_compile_options(/utf-8)' not in cmake_content:
+              cmake_content = cmake_content.replace('add_subdirectory("runner")', 'add_compile_options(/utf-8)\nadd_subdirectory("runner")')
+          with codecs.open('windows/CMakeLists.txt', 'w', encoding='utf-8-sig') as f:
+              f.write(cmake_content)
+      # ========================================================
+      
       - run: flutter config --enable-windows-desktop
       - run: flutter pub get
       
-      # 生成Windows图标
       - name: Generate Launcher Icons
         run: dart run flutter_launcher_icons
         
