@@ -7,6 +7,7 @@ import 'parent_page.dart';
 
 class PairingPage extends StatefulWidget {
   const PairingPage({super.key});
+
   @override
   State<PairingPage> createState() => PairingPageState();
 }
@@ -15,13 +16,13 @@ class PairingPageState extends State<PairingPage> {
   List<Account> _accounts = [];
   String _currentAccount = '';
   List<Map<String, dynamic>> _groups = [];
-  
   String _filterNature = '全部';
   String _filterMotherName = '全部';
   String _filterEggGroup = '全部';
 
   @override
   void initState() { super.initState(); _loadAccounts(); }
+
   Future<void> loadData() async { await _loadAccounts(); }
 
   Future<void> _loadAccounts() async {
@@ -46,35 +47,28 @@ class PairingPageState extends State<PairingPage> {
       final fatherRows = await db.rawQuery('SELECT p.* FROM parents p JOIN pairing_fathers pf ON p.id = pf.father_id WHERE pf.pairing_id = ?', [p['id']]);
       final fathers = fatherRows.map(Parent.fromMap).toList();
       final mother = Parent.fromMap(motherRows.first);
-      
       Set<String> natures = {mother.nature ?? '未知', ...fathers.map((f) => f.nature ?? '未知')};
       bool isMixed = natures.length >= 3;
-
+      
       final eggStats = await db.rawQuery('SELECT status, count(*) as c FROM eggs WHERE pairing_id = ? GROUP BY status', [p['id']]);
       int inStock = 0, sold = 0;
       for (var stat in eggStats) { if (stat['status'] == '在库') inStock = stat['c'] as int; if (stat['status'] == '已售出') sold = stat['c'] as int; }
       
-      // 安全读取 json 字符串
       List<String> relatedEggGroups = [];
       final lines = await db.query('production_lines', where: 'pairing_id = ?', whereArgs: [p['id']]);
       for (var l in lines) {
-        try {
-          final groups = (jsonDecode(l['egg_groups'] as String? ?? '[]') as List).cast<String>();
-          relatedEggGroups.addAll(groups);
-        } catch(_) {}
+        try { final groups = (jsonDecode(l['egg_groups'] as String? ?? '[]') as List).cast<String>(); relatedEggGroups.addAll(groups); } catch(_) {}
       }
-
+      
       loaded.add({
-        'id': p['id'], 'groupName': p['group_name'] ?? '', 'mother': mother, 'fathers': fathers, 
+        'id': p['id'], 'groupName': p['group_name'] ?? '', 'mother': mother, 'fathers': fathers,
         'inStock': inStock, 'sold': sold, 'isMixed': isMixed, 'nestType': p['nest_type'] ?? '普窝',
-        'eggGroups': relatedEggGroups.toSet().toList(), 
+        'eggGroups': relatedEggGroups.toSet().toList(),
       });
     }
     if (!mounted) return;
     setState(() => _groups = loaded);
   }
-
-  void _manageAccount(Account acc) { /* 保持原样，省略... */ }
 
   void _deleteGroup(int id) async {
     final confirm = await showDialog<bool>(context: context, builder: (c) => AlertDialog(
@@ -83,76 +77,36 @@ class PairingPageState extends State<PairingPage> {
     if (confirm == true) { final db = await AppDatabase.instance.db; await db.delete('pairings', where: 'id = ?', whereArgs: [id]); _load(); }
   }
 
-  // 核心修复：彻底解决下拉框遮挡问题
   void _showAlertPicker(String title, List<String> items, String current, Function(String) onSelect) {
-    showDialog(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: Text(title, style: const TextStyle(fontSize: 18), textAlign: TextAlign.center),
-        contentPadding: const EdgeInsets.only(top: 16, bottom: 0),
-        content: SizedBox(
-          width: 300,
-          child: ListView.builder(
-            shrinkWrap: true, itemCount: items.length,
-            itemBuilder: (context, i) => InkWell(
-              onTap: () { onSelect(items[i]); Navigator.pop(c); },
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    child: Text(items[i], style: const TextStyle(fontSize: 16), textAlign: TextAlign.center),
-                  ),
-                  if (current == items[i])
-                    Positioned(
-                      right: 16,
-                      child: Icon(Icons.check, color: Theme.of(context).colorScheme.primary),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        actions: [ Center(child: TextButton(onPressed: () => Navigator.pop(c), child: const Text('取消'))) ],
-      ),
-    );
+    showDialog(context: context, builder: (c) => AlertDialog(
+      title: Text(title, style: const TextStyle(fontSize: 18), textAlign: TextAlign.center), contentPadding: const EdgeInsets.only(top: 16, bottom: 0),
+      content: SizedBox(width: 300, child: ListView.builder(shrinkWrap: true, itemCount: items.length, itemBuilder: (context, i) => InkWell(
+        onTap: () { onSelect(items[i]); Navigator.pop(c); },
+        child: Stack(alignment: Alignment.center, children: [
+          Padding(padding: const EdgeInsets.symmetric(vertical: 16), child: Text(items[i], style: const TextStyle(fontSize: 16), textAlign: TextAlign.center)),
+          if (current == items[i]) Positioned(right: 16, child: Icon(Icons.check, color: Theme.of(context).colorScheme.primary)),
+        ]),
+      ))),
+      actions: [ Center(child: TextButton(onPressed: () => Navigator.pop(c), child: const Text('取消'))) ],
+    ));
   }
 
   void _showFilterDialog() {
     Set<String> mothers = _groups.map((g) => (g['mother'] as Parent).name).toSet();
     Set<String> allGroups = _groups.expand((g) => g['eggGroups'] as List<String>).toSet();
-
-    showDialog(
-      context: context,
-      builder: (c) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          return AlertDialog(
-            title: const Text('筛选配对组'),
-            content: Column(mainAxisSize: MainAxisSize.min, children: [
-              InkWell(
-                onTap: () => _showAlertPicker('按性格筛选', ['全部', ...naturesList], _filterNature, (v) { setDialogState(() => _filterNature = v); }),
-                child: InputDecorator(decoration: const InputDecoration(labelText: '按性格', suffixIcon: Icon(Icons.arrow_drop_down)), child: Text(_filterNature)),
-              ),
-              const SizedBox(height: 12),
-              InkWell(
-                onTap: () => _showAlertPicker('按母本精灵筛选', ['全部', ...mothers], _filterMotherName, (v) { setDialogState(() => _filterMotherName = v); }),
-                child: InputDecorator(decoration: const InputDecoration(labelText: '按母本精灵名字', suffixIcon: Icon(Icons.arrow_drop_down)), child: Text(_filterMotherName)),
-              ),
-              const SizedBox(height: 12),
-              InkWell(
-                onTap: () => _showAlertPicker('按蛋组筛选', ['全部', ...allGroups], _filterEggGroup, (v) { setDialogState(() => _filterEggGroup = v); }),
-                child: InputDecorator(decoration: const InputDecoration(labelText: '按蛋组', suffixIcon: Icon(Icons.arrow_drop_down)), child: Text(_filterEggGroup)),
-              ),
-            ]),
-            actions: [
-              TextButton(onPressed: () => setState(() { _filterNature = '全部'; _filterMotherName = '全部'; _filterEggGroup = '全部'; }), child: const Text('重置')),
-              TextButton(onPressed: () => Navigator.pop(c), child: const Text('取消')),
-              ElevatedButton(onPressed: () { setState(() {}); Navigator.pop(c); }, child: const Text('确定')),
-            ],
-          );
-        }
-      ),
-    );
+    showDialog(context: context, builder: (c) => StatefulBuilder(builder: (context, setDialogState) {
+      return AlertDialog(title: const Text('筛选配对组'), content: Column(mainAxisSize: MainAxisSize.min, children: [
+        InkWell(onTap: () => _showAlertPicker('按性格筛选', ['全部', ...naturesList], _filterNature, (v) { setDialogState(() => _filterNature = v); }), child: InputDecorator(decoration: const InputDecoration(labelText: '按性格', suffixIcon: Icon(Icons.arrow_drop_down)), child: Text(_filterNature))),
+        const SizedBox(height: 12),
+        InkWell(onTap: () => _showAlertPicker('按母本精灵筛选', ['全部', ...mothers], _filterMotherName, (v) { setDialogState(() => _filterMotherName = v); }), child: InputDecorator(decoration: const InputDecoration(labelText: '按母本精灵名字', suffixIcon: Icon(Icons.arrow_drop_down)), child: Text(_filterMotherName))),
+        const SizedBox(height: 12),
+        InkWell(onTap: () => _showAlertPicker('按蛋组筛选', ['全部', ...allGroups], _filterEggGroup, (v) { setDialogState(() => _filterEggGroup = v); }), child: InputDecorator(decoration: const InputDecoration(labelText: '按蛋组', suffixIcon: Icon(Icons.arrow_drop_down)), child: Text(_filterEggGroup))),
+      ]), actions: [
+        TextButton(onPressed: () => setState(() { _filterNature = '全部'; _filterMotherName = '全部'; _filterEggGroup = '全部'; }), child: const Text('重置')),
+        TextButton(onPressed: () => Navigator.pop(c), child: const Text('取消')),
+        ElevatedButton(onPressed: () { setState(() {}); Navigator.pop(c); }, child: const Text('确定')),
+      ]);
+    }));
   }
 
   @override
@@ -165,77 +119,172 @@ class PairingPageState extends State<PairingPage> {
     }).toList();
 
     return Scaffold(
-      body: Column(
-        children: [
-          SizedBox(height: 60, child: ListView(scrollDirection: Axis.horizontal, children: _accounts.map((acc) => GestureDetector(
-            onTap: () { setState(() => _currentAccount = acc.name); _load(); },
-            onLongPress: () => _manageAccount(acc),
-            onSecondaryTap: () => _manageAccount(acc),
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 150, minWidth: 80),
-              padding: const EdgeInsets.symmetric(horizontal: 16), alignment: Alignment.center, 
-              decoration: BoxDecoration(border: Border(bottom: BorderSide(color: _currentAccount == acc.name ? Theme.of(context).colorScheme.primary : Colors.transparent, width: 3))), 
-              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Text(acc.name, style: TextStyle(fontWeight: FontWeight.bold, color: _currentAccount == acc.name ? Theme.of(context).colorScheme.primary : Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
-                if (acc.accountId != null && acc.accountId!.isNotEmpty) Text(acc.accountId!, style: const TextStyle(fontSize: 10, color: Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
-              ]),
-            ),
-          )).toList())),
-          
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                IconButton(icon: Icon(Icons.filter_alt, color: (_filterNature != '全部' || _filterMotherName != '全部' || _filterEggGroup != '全部') ? Theme.of(context).colorScheme.primary : null), onPressed: _showFilterDialog),
-              ],
-            ),
+      body: Column(children: [
+        SizedBox(height: 60, child: ListView(scrollDirection: Axis.horizontal, children: _accounts.map((acc) => GestureDetector(
+          onTap: () { setState(() => _currentAccount = acc.name); _load(); },
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 150, minWidth: 80), padding: const EdgeInsets.symmetric(horizontal: 16), alignment: Alignment.center,
+            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: _currentAccount == acc.name ? Theme.of(context).colorScheme.primary : Colors.transparent, width: 3))),
+            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Text(acc.name, style: TextStyle(fontWeight: FontWeight.bold, color: _currentAccount == acc.name ? Theme.of(context).colorScheme.primary : Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
+              if (acc.accountId != null && acc.accountId!.isNotEmpty) Text(acc.accountId!, style: const TextStyle(fontSize: 10, color: Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
+            ]),
           ),
-
-          Expanded(child: _currentAccount.isEmpty ? const Center(child: Text('请先添加账号')) : ListView.builder(
-            padding: const EdgeInsets.all(12),
-            itemCount: visible.length,
-            itemBuilder: (context, i) {
-              final g = visible[i];
-              String displayName = '第 ${i + 1} 组';
-              if (g['groupName'].isNotEmpty) { displayName += ' - ${g['groupName']}'; }
-
-              return GestureDetector(
-                onSecondaryTap: () => _deleteGroup(g['id']),
-                child: Slidable(
-                  key: ValueKey(g['id']),
-                  endActionPane: ActionPane(motion: const ScrollMotion(), extentRatio: 0.25, children: [SlidableAction(onPressed: (_) => _deleteGroup(g['id']), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')]),
-                  child: Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                          Row(children: [
-                            Text(displayName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)), 
-                            const SizedBox(width: 8),
-                            if (g['isMixed']) const Text('混窝', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12)),
-                            if (g['nestType'] == '绿窝') Image.asset('assets/nest_types/green_nest.png', width: 18, height: 18),
-                          ]),
-                          Text('在库: ${g['inStock']} / 已售出: ${g['sold']}', style: const TextStyle(fontSize: 12, color: Colors.grey))
-                        ]),
-                        const Divider(),
-                        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Expanded(child: buildParentCard(context, g['mother'], true)),
-                          const SizedBox(width: 8),
-                          Expanded(child: Column(children: (g['fathers'] as List<Parent>).map((f) => Padding(padding: const EdgeInsets.only(bottom: 8), child: buildParentCard(context, f, false))).toList())),
-                        ]),
-                      ]),
-                    ),
-                  ),
-                ),
-              );
-            },
-          )),
-        ],
-      ),
+        )).toList())),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+            IconButton(icon: Icon(Icons.filter_alt, color: (_filterNature != '全部' || _filterMotherName != '全部' || _filterEggGroup != '全部') ? Theme.of(context).colorScheme.primary : null), onPressed: _showFilterDialog),
+          ]),
+        ),
+        Expanded(child: _currentAccount.isEmpty ? const Center(child: Text('请先添加账号')) : ListView.builder(
+          padding: const EdgeInsets.all(12), itemCount: visible.length, itemBuilder: (context, i) {
+            final g = visible[i];
+            String displayName = '第 ${i + 1} 组';
+            if (g['groupName'].isNotEmpty) { displayName += ' - ${g['groupName']}'; }
+            return GestureDetector(
+              onSecondaryTap: () => _deleteGroup(g['id']),
+              child: Slidable(
+                key: ValueKey(g['id']),
+                endActionPane: ActionPane(motion: const ScrollMotion(), extentRatio: 0.25, children: [SlidableAction(onPressed: (_) => _deleteGroup(g['id']), backgroundColor: Colors.red, foregroundColor: Colors.white, icon: Icons.delete, label: '删除')]),
+                child: Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    Row(children: [
+                      Text(displayName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      const SizedBox(width: 8),
+                      if (g['isMixed']) const Text('混窝', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12)),
+                      if (g['nestType'] == '绿窝') Image.asset('assets/nest_types/green_nest.png', width: 18, height: 18),
+                    ]),
+                    Text('在库: ${g['inStock']} / 已售出: ${g['sold']}', style: const TextStyle(fontSize: 12, color: Colors.grey))
+                  ]),
+                  const Divider(),
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Expanded(child: buildParentCard(context, g['mother'], true)),
+                    const SizedBox(width: 8),
+                    Expanded(child: Column(children: (g['fathers'] as List<Parent>).map((f) => Padding(padding: const EdgeInsets.only(bottom: 8), child: buildParentCard(context, f, false))).toList())),
+                  ]),
+                ]))),
+              ),
+            );
+          },
+        )),
+      ]),
       floatingActionButton: _currentAccount.isEmpty ? null : Padding(
         padding: const EdgeInsets.only(bottom: 24, right: 8),
         child: FloatingActionButton(onPressed: () async { await Navigator.push(context, MaterialPageRoute(builder: (_) => PairingEditPage(account: _currentAccount))); _load(); }, child: const Icon(Icons.add)),
+      ),
+    );
+  }
+}
+
+// ======= 补全 Word 文档缺失的页面 =======
+class PairingEditPage extends StatefulWidget {
+  final String account;
+  const PairingEditPage({super.key, required this.account});
+
+  @override
+  State<PairingEditPage> createState() => _PairingEditPageState();
+}
+
+class _PairingEditPageState extends State<PairingEditPage> {
+  final _groupNameCtrl = TextEditingController();
+  String _nestType = '普窝';
+  int? _motherId;
+  Set<int> _fatherIds = {};
+  List<Parent> _mothers = [];
+  List<Parent> _fathers = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadParents();
+  }
+
+  Future<void> _loadParents() async {
+    final db = await AppDatabase.instance.db;
+    final rows = await db.query('parents', where: 'account = ?', whereArgs: [widget.account]);
+    final all = rows.map(Parent.fromMap).toList();
+    setState(() {
+      _mothers = all.where((p) => p.gender == '母本').toList();
+      _fathers = all.where((p) => p.gender == '父本').toList();
+    });
+  }
+
+  Future<void> _save() async {
+    if (_motherId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请选择母本')));
+      return;
+    }
+    if (_fatherIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请至少选择一个父本')));
+      return;
+    }
+    final db = await AppDatabase.instance.db;
+    final pairingId = await db.insert('pairings', {
+      'account': widget.account,
+      'mother_id': _motherId,
+      'nest_type': _nestType,
+      'group_name': _groupNameCtrl.text,
+    });
+    for (int fid in _fatherIds) {
+      await db.insert('pairing_fathers', {
+        'pairing_id': pairingId,
+        'father_id': fid,
+      });
+    }
+    if (mounted) Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('新增配对组'), actions: [
+        IconButton(onPressed: _save, icon: const Icon(Icons.check)),
+      ]),
+      body: ListView(padding: const EdgeInsets.all(16), children: [
+        TextField(controller: _groupNameCtrl, decoration: const InputDecoration(labelText: '组名（选填）')),
+        const SizedBox(height: 16),
+        const Text('窝类型', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Row(children: [
+          Expanded(child: _buildNestButton('普窝')),
+          const SizedBox(width: 16),
+          Expanded(child: _buildNestButton('绿窝')),
+        ]),
+        const SizedBox(height: 24),
+        const Text('选择母本 (单选)', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Wrap(spacing: 8, runSpacing: 8, children: _mothers.map((p) => ChoiceChip(
+          label: Text(p.name),
+          selected: _motherId == p.id,
+          onSelected: (v) => setState(() => _motherId = v ? p.id : null),
+        )).toList()),
+        if (_mothers.isEmpty) const Text('请先去父母本库添加母本', style: TextStyle(color: Colors.grey)),
+        const SizedBox(height: 24),
+        const Text('选择父本 (可多选)', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Wrap(spacing: 8, runSpacing: 8, children: _fathers.map((p) => FilterChip(
+          label: Text(p.name),
+          selected: _fatherIds.contains(p.id),
+          onSelected: (v) {
+            setState(() {
+              if (v) { _fatherIds.add(p.id!); } else { _fatherIds.remove(p.id); }
+            });
+          },
+        )).toList()),
+        if (_fathers.isEmpty) const Text('请先去父母本库添加父本', style: TextStyle(color: Colors.grey)),
+      ]),
+    );
+  }
+
+  Widget _buildNestButton(String type) {
+    bool isSelected = _nestType == type;
+    return InkWell(
+      onTap: () => setState(() => _nestType = type),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16), alignment: Alignment.center,
+        decoration: BoxDecoration(color: isSelected ? Colors.green.shade50 : Colors.white, border: Border.all(color: isSelected ? Colors.green : Colors.grey.shade300, width: 2), borderRadius: BorderRadius.circular(16)),
+        child: Text(type, style: TextStyle(color: isSelected ? Colors.green.shade800 : Colors.grey, fontWeight: FontWeight.bold)),
       ),
     );
   }
