@@ -10,6 +10,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:archive/archive.dart';
+import '../models/models.dart';
 
 String appDocsPath = '';
 
